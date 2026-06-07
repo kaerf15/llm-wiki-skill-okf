@@ -13,7 +13,7 @@ export interface LLMWikiAuditSettings {
 export const DEFAULT_SETTINGS: LLMWikiAuditSettings = {
   wikiRoot: ".",
   auditDir: "audit",
-  author: "me",
+  author: "lym",
 };
 
 export class LLMWikiAuditSettingTab extends PluginSettingTab {
@@ -62,10 +62,10 @@ export class LLMWikiAuditSettingTab extends PluginSettingTab {
       .setDesc("Written into every audit file's `author` field.")
       .addText((text) =>
         text
-          .setPlaceholder("lewis")
+          .setPlaceholder("lym")
           .setValue(this.plugin.settings.author)
           .onChange(async (value) => {
-            this.plugin.settings.author = value.trim() || "me";
+            this.plugin.settings.author = value.trim() || "lym";
             await this.plugin.saveSettings();
           }),
       );

@@ -1,96 +1,197 @@
 # llm-wiki
 
-**An OpenClaw / Codex Agent Skill for building Karpathy-style LLM knowledge bases.**
+**面向 Cursor + Obsidian 的 LLM Wiki Agent Skill。**
 
-> Experimental skill — will iterate over time.
-> Please send your feedbacks in github issues.
+它把资料先沉淀成一个长期维护的 Markdown 知识库，再让 Agent 持续执行 `compile`、`ingest`、`query`、`lint`、`audit`。这不是传统 RAG 每次重新检索原文，而是让 LLM 把原始资料编译成可交叉链接、可审计、可迭代的 wiki。
 
-Inspired by [Andrej Karpathy's llm-wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) and the community's work building on it.
+本项目基于 [lewislulu/llm-wiki-skill](https://github.com/lewislulu/llm-wiki-skill) 改造，重点适配 Cursor + Obsidian 使用场景，包括 `AGENTS.md` 主入口、本地 Web viewer 自启动、MarkItDown 导入器和中文部署说明。
 
-## What this is
+灵感来自 [Andrej Karpathy 的 llm-wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)。
 
-Instead of RAG (re-retrieving raw docs on every query), this pattern has the LLM **compile** raw sources into a persistent, cross-linked Markdown wiki. Every `compile`, `ingest`, `query`, `lint`, and `audit` pass makes the wiki richer. Knowledge compounds over time.
+## 这个项目解决什么
 
-- You own: sourcing raw material, asking good questions, steering direction, filing feedback on things the AI got wrong.
-- LLM owns: all writing, cross-referencing, filing, bookkeeping, and acting on your feedback.
+你负责提供资料、提出问题、指出 AI 写错的地方。Agent 负责读资料、写 wiki、维护链接、更新索引、处理反馈。
 
-The skill comes with two companion tools in this repo:
+项目里包含三部分：
 
-- **`plugins/obsidian-audit/`** — an Obsidian plugin: select text in any page, leave a comment with severity, the comment is written into `audit/` as an anchored markdown file.
-- **`web/`** — a local Node.js preview server: renders the wiki with mermaid, KaTeX, and wikilinks, lets you select + file feedback from the browser, and shows open audits per page.
+- `llm-wiki/`：给 Cursor/Agent 读取的 skill，定义 wiki 结构和五类操作。
+- `plugins/obsidian-audit/`：Obsidian 插件，选中文本后写反馈，反馈会落到 `audit/`。
+- `web/`：本地预览服务，渲染 Markdown、Mermaid、KaTeX 和 wikilinks，也可以在浏览器里提交反馈。
 
-Both tools share a single TypeScript library (`audit-shared/`) so audit files written from Obsidian and the web viewer are byte-identical in shape.
+`plugins/obsidian-audit/` 和 `web/` 共用 `audit-shared/`，所以两边写出来的审计文件格式一致。
 
-## Install
+## 推荐安装位置
 
-```bash
-# Copy the skill into your agent's skills directory
-cp -r llm-wiki/ ~/.claude/skills/llm-wiki/
-# or for Codex
-cp -r llm-wiki/ ~/.codex/skills/llm-wiki/
+工具代码不要放进 Obsidian 知识库里。
+
+推荐结构：
+
+```text
+工具代码:
+macOS:   ~/Library/Application Support/llm-wiki/
+Windows: %LOCALAPPDATA%\llm-wiki\
+
+知识库:
+任意 Obsidian vault，例如 ~/Documents/MyVault/
 ```
 
-Then reference it in your agent config, or simply paste `llm-wiki/SKILL.md` into your agent context.
+`web/` 作为本地服务运行，只通过 `--wiki` 指向你的 Obsidian vault / wiki root。
 
-## Quick start
+## 前置依赖
+
+部署前需要用户电脑已经安装：
+
+- Python 3：用于 `scaffold.py`、`lint_wiki.py`、`audit_review.py`、`import_source.py`
+- Node.js 20+：用于 `web/` 和 Obsidian 插件构建；Node.js 会自带 `npm`
+- Obsidian：用于打开和浏览 vault
+- MarkItDown：可选，仅在导入 PDF、Office、HTML 等非 Markdown 文件时需要
+
+检查命令：
 
 ```bash
-# 1. Scaffold a new wiki
+python3 --version
+node -v
+npm -v
+```
+
+Windows 用户如果没有 `python3` 命令，可尝试：
+
+```powershell
+py -3 --version
+```
+
+## 一键交给 Cursor 的部署提示词
+
+把下面提示词复制给 Cursor。只需要先改两处：
+
+- `<THIS_REPO>`：本项目所在目录，例如 `/Users/lym/Desktop/lym-harness/llm-wiki-skill`
+- `<WIKI_ROOT>`：你的 Obsidian vault 或准备作为 wiki 的目录
+
+```text
+请在当前电脑上为我部署 llm-wiki。请严格按下面要求执行，过程中不要把 web/、audit-shared/、plugins/ 复制到我的 Obsidian 知识库里。
+
+参数：
+- 项目目录：<THIS_REPO>
+- Wiki 根目录 / Obsidian vault：<WIKI_ROOT>
+- Web 端口：4875
+- 作者：lym
+
+目标：
+1. 先检查前置依赖：
+   - 运行 `python3 --version`；如果 Windows 没有 `python3`，尝试 `py -3 --version`。
+   - 运行 `node -v`，确认 Node.js 版本是 20 或更高。
+   - 运行 `npm -v`，确认 npm 可用。
+   - 如果 Python 3 或 Node.js 20+ 不存在，请停止部署，并告诉我需要先安装 Python 3 和 Node.js 20+。
+2. 确认项目目录存在，并进入该目录。
+3. 如果 Wiki 根目录还不是 llm-wiki 结构，请运行：
+   python3 llm-wiki/scripts/scaffold.py "<WIKI_ROOT>" "My Knowledge Base"
+   生成 AGENTS.md、CLAUDE.md、raw/、wiki/、audit/、log/、outputs/。
+4. 构建共享库：
+   cd audit-shared
+   npm install
+   npm run build
+   cd ..
+5. 构建 Web viewer：
+   cd web
+   npm install
+   npm run build
+   npm run autostart:install -- --wiki "<WIKI_ROOT>" --port 4875 --author "lym"
+   cd ..
+6. 构建并链接 Obsidian 插件：
+   cd plugins/obsidian-audit
+   npm install
+   npm run build
+   npm run link -- "<WIKI_ROOT>"
+   cd ../..
+7. 可选安装 MarkItDown：
+   pip install 'markitdown[all]'
+8. 验证：
+   - 检查 http://127.0.0.1:4875 是否可访问。
+   - 检查 "<WIKI_ROOT>/AGENTS.md" 存在。
+   - 检查 "<WIKI_ROOT>/CLAUDE.md" 内容是 @AGENTS.md。
+   - 检查 "<WIKI_ROOT>/audit" 存在。
+   - 在 Obsidian 中提示我启用 Community Plugins 里的 "LLM Wiki Audit"。
+9. 最后告诉我：
+   - Web viewer 地址
+   - 自启动是否安装成功
+   - Obsidian 插件目录位置
+   - 如果有失败，给出失败命令和下一步修复建议。
+```
+
+## 手动快速开始
+
+创建一个新 wiki：
+
+```bash
 python3 llm-wiki/scripts/scaffold.py ~/my-wiki "My Research Topic"
-
-# 2. Add a source
-cp my-article.md ~/my-wiki/raw/articles/
-
-# 3. Tell your agent: "ingest raw/articles/my-article.md"
-
-# 4. Ask questions: "what does the wiki say about X?"
-
-# 5. Run lint periodically
-python3 llm-wiki/scripts/lint_wiki.py ~/my-wiki
-
-# 6. File a comment from the web viewer or Obsidian plugin, then process it
-python3 llm-wiki/scripts/audit_review.py ~/my-wiki --open
-# then tell the agent: "audit: process the open comments"
 ```
 
-## Repo contents
-
-```
-llm-wiki-skill/
-├── llm-wiki/                    ← The skill
-│   ├── SKILL.md                 ← Main skill file (read by agent)
-│   ├── references/
-│   │   ├── schema-guide.md      ← CLAUDE.md schema template
-│   │   ├── article-guide.md     ← Article writing (divide & conquer, mermaid, KaTeX)
-│   │   ├── log-guide.md         ← log/ folder convention
-│   │   ├── audit-guide.md       ← audit file format + processing workflow
-│   │   └── tooling-tips.md      ← Obsidian, qmd, plugin + web
-│   └── scripts/
-│       ├── scaffold.py          ← Bootstrap new wiki directory
-│       ├── lint_wiki.py         ← 7-pass health check (links, audit, log shape)
-│       └── audit_review.py      ← Group open/resolved audits by target
-├── audit-shared/                ← Shared TypeScript library
-│   └── src/{schema,anchor,id,serialize,index}.ts
-├── plugins/obsidian-audit/      ← Obsidian plugin — file audit from vault
-└── web/                         ← Local Node.js preview + feedback server
-    ├── server/                  ← Express + markdown-it + KaTeX + wikilinks
-    └── client/                  ← Vanilla-TS SPA with mermaid + selection popover
-```
-
-## Running the web viewer
+加入已有 Markdown 资料：
 
 ```bash
-# one-time setup (builds audit-shared, installs deps, bundles client)
-cd audit-shared && npm install && npm run build && cd ..
-cd web && npm install && npm run build && cd ..
-
-# start the server against a wiki
-cd web
-npm start -- --wiki "/path/to/your/wiki-root" --port 4175
-# open http://127.0.0.1:4175
+cp my-article.md ~/my-wiki/raw/articles/
 ```
 
-## Building the Obsidian plugin
+导入 PDF、Office、HTML 等非 Markdown 资料：
+
+```bash
+pip install 'markitdown[all]'
+python3 llm-wiki/scripts/import_source.py my-paper.pdf ~/my-wiki --kind papers
+```
+
+然后告诉 Cursor：
+
+```text
+使用 llm-wiki skill，ingest raw/papers/my-paper.md
+```
+
+周期性检查：
+
+```bash
+python3 llm-wiki/scripts/lint_wiki.py ~/my-wiki
+python3 llm-wiki/scripts/audit_review.py ~/my-wiki --open
+```
+
+## Web Viewer
+
+默认地址：
+
+```text
+http://127.0.0.1:4875
+```
+
+手动启动：
+
+```bash
+cd audit-shared && npm install && npm run build && cd ..
+cd web && npm install && npm run build
+npm start -- --wiki "/path/to/your/wiki-root"
+```
+
+安装开机自启动：
+
+```bash
+cd web
+npm run autostart:install -- --wiki "/path/to/your/wiki-root" --port 4875 --author "lym"
+```
+
+卸载自启动：
+
+```bash
+cd web
+npm run autostart:uninstall
+```
+
+自启动行为：
+
+- macOS：创建 `~/Library/LaunchAgents/com.llm-wiki.web.plist`
+- Windows：创建当前用户的 Task Scheduler 登录任务 `LLM Wiki Web`
+- 服务只绑定 `127.0.0.1`
+- 不建议直接暴露到公网
+
+## Obsidian 插件
+
+构建并链接到 vault：
 
 ```bash
 cd audit-shared && npm install && npm run build && cd ..
@@ -98,22 +199,91 @@ cd plugins/obsidian-audit
 npm install
 npm run build
 npm run link -- "/path/to/your/Obsidian vault"
-# Enable 'LLM Wiki Audit' in Obsidian → Settings → Community plugins.
 ```
 
-## Use cases
+然后在 Obsidian 里启用：
 
-- **Research deep-dive** — reading papers/articles on a topic over weeks
-- **Personal wiki** — Farzapedia-style: journal entries compiled into personal encyclopedia  
-- **Team knowledge base** — fed by Slack threads, meeting notes, docs
-- **Reading companion** — building a rich companion wiki as you read a book
+```text
+Settings → Community plugins → LLM Wiki Audit
+```
 
-## Related work
+插件命令：
 
-- [Karpathy's original Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
-- [pedronauck/skills karpathy-kb](https://github.com/pedronauck/skills/tree/main/skills/karpathy-kb) — full Obsidian vault integration
-- [Astro-Han/karpathy-llm-wiki](https://github.com/Astro-Han/karpathy-llm-wiki) — example implementation
-- [qmd](https://github.com/tobi/qmd) — semantic search for Markdown wikis
+- `Audit: Add feedback on selection`
+- `Audit: List open feedback for current file`
+- `Audit: Open audit folder`
+
+## MarkItDown 导入器
+
+项目内置 `llm-wiki/scripts/import_source.py`，但 MarkItDown 是可选依赖。
+
+安装：
+
+```bash
+pip install 'markitdown[all]'
+```
+
+导入：
+
+```bash
+python3 llm-wiki/scripts/import_source.py "/path/to/source.pdf" "/path/to/wiki-root" --kind papers
+```
+
+可选 `--kind`：
+
+- `articles`：网页、HTML、文章
+- `papers`：论文、PDF、长文档
+- `notes`：会议纪要、PPT、表格、杂项资料
+
+MarkItDown 项目地址：[microsoft/markitdown](https://github.com/microsoft/markitdown)。
+
+## 目录结构
+
+```text
+llm-wiki-skill/
+├── llm-wiki/
+│   ├── SKILL.md
+│   ├── references/
+│   │   ├── schema-guide.md
+│   │   ├── article-guide.md
+│   │   ├── log-guide.md
+│   │   ├── audit-guide.md
+│   │   └── tooling-tips.md
+│   └── scripts/
+│       ├── scaffold.py
+│       ├── import_source.py
+│       ├── import_source_test.py
+│       ├── lint_wiki.py
+│       └── audit_review.py
+├── audit-shared/
+├── plugins/obsidian-audit/
+└── web/
+```
+
+生成后的 wiki 目录结构：
+
+```text
+<wiki-root>/
+├── AGENTS.md
+├── CLAUDE.md          # 内容为 @AGENTS.md
+├── raw/
+├── wiki/
+├── audit/
+├── log/
+└── outputs/
+```
+
+## 使用场景
+
+- 研究一个主题，持续吸收论文、文章、网页。
+- 把 Obsidian vault 变成可由 Agent 维护的知识库。
+- 用审计文件长期记录“AI 哪里写错了”。
+- 为团队资料建立可追踪、可迭代的 wiki。
+
+## 作者
+
+lym <973007435@qq.com>  
+GitHub: [kaerf15](https://github.com/kaerf15)
 
 ## License
 

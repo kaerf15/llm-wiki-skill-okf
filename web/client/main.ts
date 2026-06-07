@@ -16,7 +16,7 @@ interface PageResponse {
 const state = {
   currentPath: "wiki/index.md" as string,
   rawMarkdown: "" as string,
-  author: "me" as string,
+  author: "lym" as string,
   graphTeardown: null as (() => void) | null,
 };
 

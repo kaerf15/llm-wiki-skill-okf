@@ -19,7 +19,7 @@ description: >-
 # LLM Wiki — Karpathy Knowledge Base Pattern
 
 > **Experimental skill — iterating.**
-> Authored by Lewis Liu (lylewis@outlook.com) · Inspired by [Karpathy's llm-wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+> Authored by lym <973007435@qq.com> · [GitHub](https://github.com/kaerf15) · Inspired by [Karpathy's llm-wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 
 ## Core idea
 
@@ -28,13 +28,14 @@ Instead of RAG (re-retrieving raw docs on every query), the LLM **compiles** raw
 - **You** own: sourcing raw material, asking good questions, steering direction, filing feedback on anything the AI got wrong.
 - **LLM** owns: all writing, cross-referencing, filing, bookkeeping, and acting on your feedback.
 
-The wiki is a living artifact with **five operations** — `compile`, `ingest`, `query`, `lint`, `audit`. Every session starts by reading `CLAUDE.md` and `wiki/index.md`.
+The wiki is a living artifact with **five operations** — `compile`, `ingest`, `query`, `lint`, `audit`. Every session starts by reading `AGENTS.md` and `wiki/index.md`.
 
 ## Directory layout
 
 ```
 <wiki-root>/
-├── CLAUDE.md          ← Schema: scope, conventions, current articles, gaps
+├── AGENTS.md          ← Schema: scope, conventions, current articles, gaps
+├── CLAUDE.md          ← Compatibility pointer: @AGENTS.md
 ├── log/               ← Per-day operation log (one file per day)
 │   ├── 20260409.md
 │   └── 20260410.md
@@ -55,7 +56,7 @@ The wiki is a living artifact with **five operations** — `compile`, `ingest`, 
     └── queries/       ← Query answers (promote durable ones to wiki/)
 ```
 
-`CLAUDE.md` is the **schema file** — the single most important configuration. It tells the LLM the wiki's scope, naming conventions, current article list, open questions, and research gaps. Read `references/schema-guide.md` for what to put in it. Read it at the start of every session.
+`AGENTS.md` is the **schema file** — the single most important configuration. It tells the LLM the wiki's scope, naming conventions, current article list, open questions, and research gaps. Read `references/schema-guide.md` for what to put in it. Read it at the start of every session. `CLAUDE.md` is generated as a one-line compatibility pointer (`@AGENTS.md`) for Claude Code users.
 
 ## Core principles
 
@@ -102,7 +103,16 @@ Both render in the web viewer (server-side KaTeX, client-side mermaid) and in Ob
 
 ### 3. Raw file policy
 
-Small text-based sources (md, txt, small pdfs, small images) → copy into `raw/<subfolder>/`.
+Small text-based sources (`md`, `txt`) → copy into `raw/<subfolder>/`.
+
+Document sources (`pdf`, `docx`, `pptx`, `xlsx`, `html`, etc.) → convert to Markdown first with the optional MarkItDown importer:
+
+```bash
+pip install 'markitdown[all]'
+python3 scripts/import_source.py <source-file> <wiki-root> --kind papers
+```
+
+The importer writes a Markdown file under `raw/articles/`, `raw/papers/`, or `raw/notes/` with source metadata in frontmatter. Then ingest the generated `.md` file.
 
 Large binaries (videos, model weights, installers, datasets, large PDFs >10 MB) → **do not copy**. Instead:
 
@@ -142,7 +152,7 @@ Every action on the wiki is one of these five. Each appends an entry to the curr
 **When to run**: after a big ingest batch, when an existing page has outgrown 1200 words, when `index.md` no longer reflects reality, or when the user says "clean up the wiki".
 
 **Steps**:
-1. Read `CLAUDE.md`, `wiki/index.md`, and every file in the target subtree.
+1. Read `AGENTS.md`, `wiki/index.md`, and every file in the target subtree.
 2. For each page over ~1200 words: plan a split into `concepts/<topic>/` with an index + sub-pages. Confirm the plan with the user before writing.
 3. For each pair of near-duplicate pages: propose a merge. Confirm, then rewrite.
 4. Regenerate `wiki/index.md` so every page is listed exactly once.
@@ -155,7 +165,7 @@ Add a new source. **One source typically touches 5–15 wiki pages.**
 **Steps**:
 1. Save source to the right subfolder:
    - web article → `raw/articles/<slug>.md`
-   - paper → `raw/papers/<slug>.md` (extracted text for big PDFs)
+   - paper → `raw/papers/<slug>.md` (use `scripts/import_source.py` for PDF/Office/HTML conversion)
    - note → `raw/notes/<slug>.md`
    - large binary → `raw/refs/<slug>.md` pointer file (see raw file policy)
 2. Read the source in full.
@@ -208,7 +218,7 @@ Process human feedback from `audit/`.
    - **Accept**: apply the correction to the target file.
    - **Partially accept**: apply what makes sense, note the rest in the resolution.
    - **Reject**: explain why in the resolution — the feedback may be based on a misreading of scope or a contradictory source.
-   - **Defer**: add to `CLAUDE.md` "Open research questions" and leave the audit in place with a comment.
+   - **Defer**: add to `AGENTS.md` "Open research questions" and leave the audit in place with a comment.
 4. For applied audits, append a `# Resolution` section to the audit file:
    ```markdown
    # Resolution
@@ -248,10 +258,10 @@ The Obsidian plugin and the web viewer both write audit files in the **same form
 python3 scripts/scaffold.py <wiki-root> "<Topic Title>"
 ```
 
-Creates the full tree (including `log/<today>.md`, `audit/`, `audit/resolved/`), a blank `CLAUDE.md` based on the new template, and a blank `wiki/index.md` with the recommended category layout.
+Creates the full tree (including `log/<today>.md`, `audit/`, `audit/resolved/`), a blank `AGENTS.md` based on the new template, a `CLAUDE.md` compatibility pointer, and a blank `wiki/index.md` with the recommended category layout.
 
 After scaffolding:
-1. Fill in `CLAUDE.md` — define scope, naming conventions, initial research questions.
+1. Fill in `AGENTS.md` — define scope, naming conventions, initial research questions.
 2. Start ingesting sources.
 3. Ask questions to build up `outputs/queries/`; promote durable answers.
 4. Run `lint` periodically.
@@ -292,7 +302,7 @@ The LLM rebuilds `index.md` on every compile and touches it on every ingest. For
 Rules:
 - Every wiki page must appear exactly once in `index.md`. `lint` enforces this.
 - Folder-split concepts show hierarchy via indented bullets.
-- `index.md` + `CLAUDE.md` together are what the AI reads at session start.
+- `index.md` + `AGENTS.md` together are what the AI reads at session start.
 
 ## `log/` format
 
@@ -313,7 +323,7 @@ Quick grep across history: `grep -rh "^## \[" log/ | tail -20`.
 
 ## References
 
-- `references/schema-guide.md` — What to put in `CLAUDE.md`
+- `references/schema-guide.md` — What to put in `AGENTS.md`
 - `references/article-guide.md` — How to write good wiki articles (length, wikilinks, mermaid, math, divide-and-conquer)
 - `references/log-guide.md` — The `log/` folder convention
 - `references/audit-guide.md` — Audit file format, anchor strategy, processing workflow

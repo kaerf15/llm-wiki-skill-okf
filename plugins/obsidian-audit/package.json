@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Obsidian plugin for the llm-wiki skill — select text → file an anchored audit comment.",
+  "author": "lym <973007435@qq.com> (https://github.com/kaerf15)",
   "scripts": {
     "build": "node esbuild.config.mjs production",
     "dev": "node esbuild.config.mjs",

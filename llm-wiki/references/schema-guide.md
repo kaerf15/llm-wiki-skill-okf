@@ -1,6 +1,6 @@
-# CLAUDE.md Schema Guide
+# AGENTS.md Schema Guide
 
-`CLAUDE.md` (also read as `AGENTS.md` by some tools) is the **schema document** for a wiki topic. It tells the LLM agent the scope, conventions, current state, and open questions — every session should start by reading it together with `wiki/index.md`.
+`AGENTS.md` is the **schema document** for a wiki topic. It tells the LLM agent the scope, conventions, current state, and open questions — every session should start by reading it together with `wiki/index.md`. The scaffold also creates a one-line `CLAUDE.md` containing `@AGENTS.md` so Claude Code users are pointed at the same canonical schema.
 
 ## Why it matters
 

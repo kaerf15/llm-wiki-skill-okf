@@ -55,20 +55,44 @@ The plugin uses the shared `audit-shared` library, so files it writes are byte-i
 
 Local Node.js server that renders the wiki with mermaid, KaTeX, and wikilinks, and lets you file feedback from your browser.
 
+Keep `web/` outside the Obsidian vault. Treat it as a local app, then point it
+at the vault/wiki with `--wiki`.
+
 ```bash
 cd web
 npm install
 npm run build
-npm start -- --wiki "/path/to/wiki-root" --port 4175
+npm start -- --wiki "/path/to/wiki-root"
 ```
 
-Then open `http://127.0.0.1:4175`. Features:
+Then open `http://127.0.0.1:4875`. Features:
 - Left sidebar: navigation tree built from `wiki/index.md`.
 - Main pane: rendered markdown, mermaid diagrams rendered client-side, formulas rendered server-side.
 - Right sidebar: list of open audits for the current page.
 - Select any text → "💬 Add feedback" popover appears → submit → writes an audit file to `<wiki-root>/audit/`.
 
 The server binds to `127.0.0.1` only. No auth; intended for personal use on your own machine.
+
+### Web viewer autostart
+
+Install a user-level startup service:
+
+```bash
+cd web
+npm run autostart:install -- --wiki "/path/to/wiki-root"
+```
+
+Defaults:
+- Port: `4875`
+- Host: `127.0.0.1`
+- macOS service: `~/Library/LaunchAgents/com.llm-wiki.web.plist`
+- Windows service: per-user Task Scheduler task named `LLM Wiki Web`
+
+Remove it:
+
+```bash
+npm run autostart:uninstall
+```
 
 ## Obsidian Web Clipper usage
 
@@ -77,6 +101,24 @@ The server binds to `127.0.0.1` only. No auth; intended for personal use on your
 3. Clip an article → hit the download-images hotkey → file is ready for `ingest`.
 
 For complex pages (paywalled, dynamic): copy-paste the main text manually, save as `raw/articles/<slug>.md`.
+
+## MarkItDown importer
+
+For PDFs, Office files, HTML exports, and other non-Markdown sources, use the
+optional importer before running `ingest`.
+
+```bash
+pip install 'markitdown[all]'
+python3 scripts/import_source.py "/path/to/source.pdf" "/path/to/wiki-root" --kind papers
+```
+
+Kinds:
+- `articles` — web pages, HTML exports, clipped articles
+- `papers` — papers and long-form PDFs
+- `notes` — meeting notes, decks, spreadsheets, miscellaneous documents
+
+The script writes Markdown into `raw/<kind>/` and prints the generated path.
+MarkItDown: [microsoft/markitdown](https://github.com/microsoft/markitdown).
 
 ## qmd (optional, for large wikis)
 
