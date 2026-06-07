@@ -16,8 +16,8 @@ Guidelines for writing high-quality wiki articles. Read before compiling a new c
 
 If a concept page **would** exceed ~1200 words, split it:
 
-1. Write the hub at `wiki/concepts/<Topic>.md` (`title:` = concept name).
-2. If aspects are needed, create `wiki/concepts/<Topic>/<aspect>.md` (one folder level only).
+1. Write the hub at `wiki/concepts/<title>.md` — filename must equal `title:`.
+2. If aspects are needed, create `wiki/concepts/<topic>/<aspect-title>.md` (one folder level only; each aspect filename = its `title:`).
 3. Link aspects from the hub:
    ```markdown
    - [aspect-1](wiki/concepts/<Topic>/aspect-1.md) — one-line summary
@@ -39,10 +39,25 @@ Use standard Markdown links in **Relationship to other concepts** and **Sources*
 
 ## Sources
 
-- [source-slug-1](wiki/summaries/source-slug-1.md) — (date) one-line description
+- [Source Title](wiki/summaries/Source%20Title.md) — (date) one-line description
 ```
 
 See `schema-guide.md` for frontmatter fields.
+
+## Filename = title
+
+Every wiki page (except `wiki/index.md`) must be saved as `<title>.md`:
+
+```yaml
+---
+title: 品牌侦察赢对手
+type: summary
+---
+```
+
+→ file path: `wiki/summaries/品牌侦察赢对手.md`
+
+Do not use English slugs like `brand-reconnaissance-win-rivals.md` when the title is Chinese.
 
 ## Link rules
 

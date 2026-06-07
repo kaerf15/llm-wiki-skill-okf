@@ -13,10 +13,11 @@ Checks:
   2. Orphan pages — wiki pages with no inbound links
   3. Missing index entries — wiki pages not listed in wiki/index.md
   4. Nested index.md — only wiki/index.md is allowed
-  5. Frequently-linked missing pages — linked 3+ times but no page
-  6. log/ shape — every file matches YYYYMMDD.md and has the right H1
-  7. audit/ shape — every audit/*.md parses as a valid AuditEntry
-  8. Audit targets — every open audit's `target` file must exist
+  5. Title/filename mismatch — wiki page stem must equal frontmatter title
+  6. Frequently-linked missing pages — linked 3+ times but no page
+  7. log/ shape — every file matches YYYYMMDD.md and has the right H1
+  8. audit/ shape — every audit/*.md parses as a valid AuditEntry
+  9. Audit targets — every open audit's `target` file must exist
 
 Exit codes:
   0 — no issues found
@@ -135,6 +136,16 @@ def parse_frontmatter(text: str) -> dict | None:
     return result
 
 
+def frontmatter_title(text: str) -> str | None:
+    fm = parse_frontmatter(text)
+    if not fm or "title" not in fm:
+        return None
+    title = fm["title"]
+    if title is None:
+        return None
+    return str(title).strip()
+
+
 def lint(root: str) -> int:
     root_path = Path(root)
     wiki_path = root_path / "wiki"
@@ -232,7 +243,34 @@ def lint(root: str) -> int:
     else:
         print("✅ No nested index.md files")
 
-    # ── Pass 5: frequently linked but missing ─────────────────────────────
+    # ── Pass 5: filename must match title ─────────────────────────────────
+    title_mismatches: list[tuple[Path, str]] = []
+    missing_titles: list[Path] = []
+    for p in all_wiki_files:
+        if p == index_path:
+            continue
+        text = p.read_text(encoding="utf-8")
+        title = frontmatter_title(text)
+        if not title:
+            missing_titles.append(p)
+            continue
+        if p.stem != title:
+            title_mismatches.append((p, title))
+
+    if missing_titles:
+        print(f"\n🔴 Wiki pages missing frontmatter title ({len(missing_titles)}):")
+        for p in missing_titles:
+            print(f"   {p.relative_to(root_path)}")
+        issues += len(missing_titles)
+    if title_mismatches:
+        print(f"\n🔴 Filename/title mismatches ({len(title_mismatches)}):")
+        for p, title in title_mismatches:
+            print(f"   {p.relative_to(root_path)} — title: {title!r}, filename: {p.stem!r}")
+        issues += len(title_mismatches)
+    if not missing_titles and not title_mismatches:
+        print("✅ All wiki filenames match their titles")
+
+    # ── Pass 6: frequently linked but missing ─────────────────────────────
     link_counts: dict[str, int] = defaultdict(int)
     for md_file in root_path.rglob("*.md"):
         rel_from_root = md_file.relative_to(root_path).as_posix()
@@ -254,7 +292,7 @@ def lint(root: str) -> int:
     else:
         print("✅ No frequently-linked missing pages")
 
-    # ── Pass 6: log/ shape ───────────────────────────────────────────────
+    # ── Pass 7: log/ shape ───────────────────────────────────────────────
     if log_path.exists() and log_path.is_dir():
         log_issues: list[str] = []
         for p in sorted(log_path.iterdir()):
@@ -279,7 +317,7 @@ def lint(root: str) -> int:
     else:
         print("⚠️  log/ directory not found — skipping log shape check")
 
-    # ── Pass 7: audit/ shape ─────────────────────────────────────────────
+    # ── Pass 8: audit/ shape ─────────────────────────────────────────────
     audit_targets_to_check: list[tuple[str, str]] = []
     if audit_path.exists() and audit_path.is_dir():
         audit_files = [p for p in audit_path.rglob("*.md") if p.name != ".gitkeep"]
@@ -321,7 +359,7 @@ def lint(root: str) -> int:
     else:
         print("⚠️  audit/ directory not found — skipping audit shape check")
 
-    # ── Pass 8: audit targets exist ──────────────────────────────────────
+    # ── Pass 9: audit targets exist ──────────────────────────────────────
     missing_targets: list[tuple[str, str]] = []
     for audit_id, target in audit_targets_to_check:
         target_path = root_path / target

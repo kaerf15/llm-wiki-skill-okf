@@ -86,10 +86,11 @@ Every operation appends an entry to `log/YYYYMMDD.md`.
 
 ## Naming conventions
 
-- **Concept pages** (`wiki/concepts/`): Title Case noun phrases.
-- **Split concepts**: hub at `wiki/concepts/<Topic>.md`; optional `wiki/concepts/<Topic>/<aspect>.md` (one folder level). Only `wiki/index.md` may be named `index.md`.
-- **Entity pages** (`wiki/entities/`): Proper names.
-- **Summary pages** (`wiki/summaries/`): kebab-case source slug.
+- **All wiki pages** (except `wiki/index.md`): filename must equal `title:` in frontmatter.
+- **Concept pages** (`wiki/concepts/`): `wiki/concepts/<title>.md`; optional aspect folder with `wiki/concepts/<topic>/<aspect-title>.md`.
+- **Entity pages** (`wiki/entities/`): `wiki/entities/<title>.md`.
+- **Summary pages** (`wiki/summaries/`): `wiki/summaries/<title>.md` (not kebab-case slugs).
+- Only `wiki/index.md` may be named `index.md`.
 
 All pages require YAML frontmatter: `title`, `type`, `created`, `updated`, `sources`, `tags`.
 

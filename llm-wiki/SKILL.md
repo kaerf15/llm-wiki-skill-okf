@@ -52,13 +52,13 @@ Four rules govern everything below. If a future instruction contradicts one, fla
 
 A single concept page should **never** try to cover a complex topic end-to-end. Target: **400–1200 words per page**. When a topic would blow past that:
 
-- Prefer a **named hub file**: `wiki/concepts/<Topic>.md` with `title:` matching the concept name.
+- Prefer a **named hub file**: `wiki/concepts/<Topic>.md` where the **filename equals `title:`** (e.g. `title: 战略核爆品` → `wiki/concepts/战略核爆品.md`).
 - Only if needed, add a **shallow** aspect folder: `wiki/concepts/<Topic>/<aspect>.md` (one extra level max).
 - **Never** create `index.md` under subfolders — the **only** `index.md` is `wiki/index.md`.
 - Keep paths shallow: `wiki/<category>/<file>.md` or `wiki/<category>/<topic>/<aspect>.md`. No deeper nesting.
 - In `wiki/index.md`, list pages with indented bullets when a topic has aspect files.
 
-On `compile`, flatten legacy layouts: rename `wiki/.../index.md` → `wiki/.../<Topic>.md` or `overview.md`, merge duplicates, and update links.
+On `compile`, flatten legacy layouts: rename `wiki/.../index.md` → `wiki/.../<title>.md`, rename slug filenames (e.g. `brand-recon-win.md`) to match `title:`, merge duplicates, and update links.
 
 ### 2. Mermaid for diagrams, KaTeX for formulas
 
@@ -98,13 +98,14 @@ Use standard Markdown links with paths relative to the wiki root:
 [Transformers](wiki/concepts/Transformers.md)
 [Brand Reconnaissance](wiki/concepts/Brand%20Reconnaissance.md)
 [Andrej Karpathy](wiki/entities/Andrej%20Karpathy.md)
-[source summary](wiki/summaries/karpathy-llm-wiki-gist.md)
+[Karpathy LLM Wiki Gist](wiki/summaries/Karpathy%20LLM%20Wiki%20Gist.md)
 [external ref](raw/refs/large-dataset.md)
 ```
 
 Rules:
 - Always use `wiki/...` paths for wiki pages (include `.md`). Do **not** link to subfolder `index.md`.
-- Every page must have `title:` in frontmatter; the web graph and navigation use it as the display name.
+- **Filename = `title:`** for every wiki page except `wiki/index.md`. No English slugs when the title is Chinese; no kebab-case summary filenames.
+- Every page must have `title:` in frontmatter; graph, navigation, and filename all use the same name.
 - URL-encode spaces in paths (`%20`).
 - Same-page sections: `[Section title](#section-heading)`.
 - Link the first mention of every entity or concept; at most twice per article.
@@ -127,7 +128,7 @@ Every action on the wiki is one of these five. Each appends an entry to `log/YYY
 
 Add a new source. **One source typically touches 5–15 wiki pages.**
 
-**Steps**: save to `raw/` → read source → create summary → create/update concept & entity pages → update `index.md` → log.
+**Steps**: save to `raw/` → read source → create summary → create/update concept & entity pages (each file named exactly as `title:`) → update `wiki/index.md` → log.
 
 ### 3. `query`
 
@@ -186,7 +187,7 @@ Install skill to `<wiki-root>/.agents/skills/llm-wiki/` (see project README for 
 - [Andrej Karpathy](wiki/entities/Andrej%20Karpathy.md) — AI researcher
 
 ## Summaries (chronological)
-- 2026-04-09 — [llm-wiki-gist](wiki/summaries/llm-wiki-gist.md) — Karpathy's Gist
+- 2026-04-09 — [Karpathy LLM Wiki Gist](wiki/summaries/Karpathy%20LLM%20Wiki%20Gist.md) — original Gist
 
 ## Open Questions
 - Q1: ...

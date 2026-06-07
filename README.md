@@ -158,10 +158,11 @@ python3 llm-wiki/scripts/audit_review.py ~/my-wiki --open
 
 ## 链接格式
 
-Wiki 内容使用标准 Markdown 链接：
+Wiki 内容使用标准 Markdown 链接。每个 wiki 页面的**文件名必须等于** frontmatter 里的 `title:`（`wiki/index.md` 除外）：
 
 ```markdown
 [Transformers](wiki/concepts/Transformers.md)
+[品牌侦察赢对手](wiki/summaries/品牌侦察赢对手.md)
 [Andrej Karpathy](wiki/entities/Andrej%20Karpathy.md)
 ```
 
