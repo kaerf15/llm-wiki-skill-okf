@@ -47,6 +47,13 @@ Windows: %LOCALAPPDATA%\llm-wiki\
 任意 Obsidian vault，例如 ~/Documents/MyVault/
 ```
 
+部署时会临时 clone 本仓库，完成后只保留迁移后的运行组件：
+
+- `web/` 和 `audit-shared/`：迁移到用户级应用目录。
+- `llm-wiki/` skill：复制到 vault 的 `.cursor/skills/llm-wiki/`。
+- Obsidian 插件：复制到 vault 的 `.obsidian/plugins/llm-wiki-audit/`。
+- 临时 clone 仓库：部署完成后删除。
+
 `web/` 作为本地服务运行，只通过 `--wiki` 指向你的 Obsidian vault / wiki root。
 
 ## 前置依赖
@@ -86,15 +93,18 @@ py -3 --version
 - 不要把 web/、audit-shared/、plugins/ 这些服务/构建目录复制到我的 Obsidian vault 里。
 - 需要把 `llm-wiki/` 这个 skill 安装到当前 vault：`<WIKI_ROOT>/.cursor/skills/llm-wiki/`。
 - 请从 GitHub 下载项目：https://github.com/kaerf15/llm-wiki-skill
-- 工具代码放到用户级应用目录：
-  - macOS：~/Library/Application Support/llm-wiki/llm-wiki-skill
-  - Windows：%LOCALAPPDATA%\llm-wiki\llm-wiki-skill
+- GitHub clone 只作为临时安装源，部署完成后必须删除。
+- 运行组件迁移到用户级应用目录：
+  - macOS：~/Library/Application Support/llm-wiki/
+  - Windows：%LOCALAPPDATA%\llm-wiki\
 - Web 端口：4875
 - 作者：lym
 
 参数：
 - REPO_URL=https://github.com/kaerf15/llm-wiki-skill
 - WIKI_ROOT=当前 Cursor workspace 根目录
+- APP_ROOT=用户级应用目录下的 llm-wiki 目录
+- TEMP_CLONE=系统临时目录下的 llm-wiki-skill clone
 - PORT=4875
 - AUTHOR=lym
 
@@ -106,55 +116,75 @@ py -3 --version
    - 运行 `git --version`，确认 Git 可用。
    - 如果 Python 3、Node.js 20+、npm 或 Git 不存在，请停止部署，并告诉我需要先安装什么。
 2. 确认当前 Cursor workspace 是一个真实目录。把这个目录作为 WIKI_ROOT。
-3. 根据操作系统确定工具安装目录：
-   - macOS：~/Library/Application Support/llm-wiki/llm-wiki-skill
-   - Windows：%LOCALAPPDATA%\llm-wiki\llm-wiki-skill
-4. 如果工具目录不存在，请从 REPO_URL clone 到工具目录；如果已经存在，请进入工具目录并拉取最新代码。
+3. 根据操作系统确定 APP_ROOT：
+   - macOS：~/Library/Application Support/llm-wiki
+   - Windows：%LOCALAPPDATA%\llm-wiki
+4. 在系统临时目录创建 TEMP_CLONE，从 REPO_URL clone 到 TEMP_CLONE。不要 clone 到 WIKI_ROOT，也不要把整个仓库放进 vault。
 5. 如果 WIKI_ROOT 还不是 llm-wiki 结构，请运行：
-   python3 <工具目录>/llm-wiki/scripts/scaffold.py "<WIKI_ROOT>" "My Knowledge Base"
+   python3 <TEMP_CLONE>/llm-wiki/scripts/scaffold.py "<WIKI_ROOT>" "My Knowledge Base"
    生成 AGENTS.md、CLAUDE.md、raw/、wiki/、audit/、log/、outputs/。
 6. 安装项目内 skill 到当前 vault：
    - 创建目录："<WIKI_ROOT>/.cursor/skills"
-   - 将 "<工具目录>/llm-wiki" 复制到 "<WIKI_ROOT>/.cursor/skills/llm-wiki"
+   - 将 "<TEMP_CLONE>/llm-wiki" 复制到 "<WIKI_ROOT>/.cursor/skills/llm-wiki"
    - 如果目标目录已存在，先删除旧的 "<WIKI_ROOT>/.cursor/skills/llm-wiki"，再复制最新版。
-7. 构建共享库：
-   cd <工具目录>
+7. 迁移 Web runtime 到 APP_ROOT：
+   - 创建 APP_ROOT。
+   - 删除旧的 "<APP_ROOT>/audit-shared" 和 "<APP_ROOT>/web"。
+   - 将 "<TEMP_CLONE>/audit-shared" 复制到 "<APP_ROOT>/audit-shared"。
+   - 将 "<TEMP_CLONE>/web" 复制到 "<APP_ROOT>/web"。
+8. 构建共享库：
+   cd <APP_ROOT>
    cd audit-shared
    npm install
    npm run build
    cd ..
-8. 构建 Web viewer 并安装开机自启动：
+9. 构建 Web viewer 并安装开机自启动：
    cd web
    npm install
    npm run build
    npm run autostart:install -- --wiki "<WIKI_ROOT>" --port 4875 --author "lym"
    cd ..
-9. 构建并链接 Obsidian 插件：
-   cd plugins/obsidian-audit
-   npm install
-   npm run build
+10. 构建并安装 Obsidian 插件，不要使用 symlink 指向 TEMP_CLONE：
+   - 在 TEMP_CLONE 中构建插件：
+     cd <TEMP_CLONE>/audit-shared
+     npm install
+     npm run build
+     cd ../plugins/obsidian-audit
+     npm install
+     npm run build
+   - 创建目录："<WIKI_ROOT>/.obsidian/plugins/llm-wiki-audit"
+   - 将以下文件复制到该目录：
+     - "<TEMP_CLONE>/plugins/obsidian-audit/manifest.json"
+     - "<TEMP_CLONE>/plugins/obsidian-audit/main.js"
+     - "<TEMP_CLONE>/plugins/obsidian-audit/styles.css"
+   - 如果目标目录已存在，先删除旧目录再复制。
+11. 不再需要运行下面这种链接命令，因为它会让 vault 依赖 TEMP_CLONE，不符合本次部署要求：
    npm run link -- "<WIKI_ROOT>"
-   cd ../..
-10. 默认全局安装 MarkItDown 到用户级 Python 环境：
+12. 默认全局安装 MarkItDown 到用户级 Python 环境：
    - macOS / Linux：`python3 -m pip install --user 'markitdown[all]'`
    - Windows：`py -3 -m pip install --user "markitdown[all]"`
-11. 验证：
+13. 验证：
    - 检查 http://127.0.0.1:4875 是否可访问。
    - 检查 "<WIKI_ROOT>/AGENTS.md" 存在。
    - 检查 "<WIKI_ROOT>/CLAUDE.md" 内容是 @AGENTS.md。
    - 检查 "<WIKI_ROOT>/audit" 存在。
    - 检查 "<WIKI_ROOT>/.cursor/skills/llm-wiki/SKILL.md" 存在。
+   - 检查 "<WIKI_ROOT>/.obsidian/plugins/llm-wiki-audit/manifest.json" 存在。
+   - 检查 "<WIKI_ROOT>/.obsidian/plugins/llm-wiki-audit/main.js" 存在。
+   - 检查 "<APP_ROOT>/web" 和 "<APP_ROOT>/audit-shared" 存在。
    - 在 Obsidian 中提示我启用 Community Plugins 里的 "LLM Wiki Audit"。
-12. 确认以上部署和验证都完成后，删除第 3 步确定的工具目录中 clone 下来的仓库目录，避免用户级应用目录残留源码。删除前必须确认：
+14. 确认以上部署和验证都完成后，删除 TEMP_CLONE。删除前必须确认：
    - Skill 已经复制到 "<WIKI_ROOT>/.cursor/skills/llm-wiki"。
+   - Web viewer runtime 已经迁移到 "<APP_ROOT>/web"。
+   - Obsidian 插件已经复制到 "<WIKI_ROOT>/.obsidian/plugins/llm-wiki-audit"。
    - Web viewer 自启动已经安装完成。
-   - Obsidian 插件已经链接到当前 vault。
-13. 最后告诉我：
+15. 最后告诉我：
    - Web viewer 地址
+   - APP_ROOT 位置
    - Skill 安装目录
+   - Obsidian 插件安装目录
    - 自启动是否安装成功
-   - Obsidian 插件目录位置
-   - 临时 clone 仓库是否已删除
+   - TEMP_CLONE 是否已删除
    - 如果有失败，给出失败命令和下一步修复建议。
 ```
 
@@ -231,14 +261,10 @@ npm run autostart:uninstall
 
 ## Obsidian 插件
 
-构建并链接到 vault：
+傻瓜式部署会把插件文件复制到：
 
-```bash
-cd audit-shared && npm install && npm run build && cd ..
-cd plugins/obsidian-audit
-npm install
-npm run build
-npm run link -- "/path/to/your/Obsidian vault"
+```text
+<wiki-root>/.obsidian/plugins/llm-wiki-audit/
 ```
 
 然后在 Obsidian 里启用：
