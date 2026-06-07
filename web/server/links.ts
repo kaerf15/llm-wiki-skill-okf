@@ -29,6 +29,14 @@ function isExternalHref(href: string): boolean {
   return /^(https?:|mailto:|#)/i.test(href);
 }
 
+function decodeHrefPath(pathPart: string): string {
+  try {
+    return decodeURIComponent(pathPart);
+  } catch {
+    return pathPart;
+  }
+}
+
 /**
  * Resolve a markdown link target to a wiki page path.
  * Supports paths relative to wiki root (wiki/...) or relative to the source file.
@@ -43,7 +51,7 @@ export function resolveWikiLink(
   const pathPart = href.split("#", 1)[0] ?? href;
   if (!pathPart) return null;
 
-  let candidate = pathPart.replace(/\\/g, "/");
+  let candidate = decodeHrefPath(pathPart).replace(/\\/g, "/");
   if (!candidate.endsWith(".md")) candidate += ".md";
 
   let full: string;

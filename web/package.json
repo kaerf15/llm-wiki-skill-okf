@@ -7,6 +7,7 @@
   "author": "lym <973007435@qq.com> (https://github.com/kaerf15)",
   "scripts": {
     "build": "node build-client.mjs",
+    "test": "node --import tsx --test \"server/**/*.test.ts\"",
     "prestart": "npm run build",
     "start": "tsx server/index.ts",
     "dev": "tsx watch server/index.ts",

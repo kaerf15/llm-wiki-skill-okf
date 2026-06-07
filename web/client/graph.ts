@@ -193,7 +193,11 @@ export function renderGraph(
     .append("text")
     .attr("dy", (d) => -radius(d) - 8)
     .attr("text-anchor", "middle")
-    .text((d) => d.title || d.label);
+    .text((d) => d.label);
+
+  nodeInner
+    .append("title")
+    .text((d) => (d.title && d.title !== d.label ? `${d.label} — ${d.title}` : d.label));
 
   // ── Drag ────────────────────────────────────────────────────────────────
   const dragBehavior = d3drag
