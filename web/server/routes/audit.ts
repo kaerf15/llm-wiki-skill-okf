@@ -10,19 +10,23 @@ import {
   type AuditEntry,
   type Severity,
 } from "audit-shared";
-import type { ServerConfig } from "../config.js";
+import type { WikiRegistry } from "../config.js";
+import { wikiOr400 } from "./helpers.js";
 
 const VALID_SEVERITIES: readonly Severity[] = ["info", "suggest", "warn", "error"];
 
-export function handleAuditList(cfg: ServerConfig) {
+export function handleAuditList(registry: WikiRegistry) {
   return (req: Request, res: Response) => {
+    const wiki = wikiOr400(registry, req, res);
+    if (!wiki) return;
+
     const target = req.query.target as string | undefined;
     const mode = (req.query.mode as string | undefined) ?? "open";
 
     const entries: AuditEntry[] = [];
     const dirs: string[] = [];
-    if (mode === "open" || mode === "all") dirs.push(path.join(cfg.wikiRoot, "audit"));
-    if (mode === "resolved" || mode === "all") dirs.push(path.join(cfg.wikiRoot, "audit/resolved"));
+    if (mode === "open" || mode === "all") dirs.push(path.join(wiki.path, "audit"));
+    if (mode === "resolved" || mode === "all") dirs.push(path.join(wiki.path, "audit/resolved"));
 
     for (const dir of dirs) {
       if (!fs.existsSync(dir)) continue;
@@ -46,8 +50,11 @@ export function handleAuditList(cfg: ServerConfig) {
   };
 }
 
-export function handleAuditCreate(cfg: ServerConfig) {
+export function handleAuditCreate(registry: WikiRegistry) {
   return (req: Request, res: Response) => {
+    const wiki = wikiOr400(registry, req, res);
+    if (!wiki) return;
+
     try {
       const {
         target,
@@ -88,21 +95,18 @@ export function handleAuditCreate(cfg: ServerConfig) {
         return;
       }
 
-      // Make sure the target file exists inside the wiki root.
-      const targetFull = path.join(cfg.wikiRoot, target);
+      const targetFull = path.join(wiki.path, target);
       if (!fs.existsSync(targetFull) || !fs.statSync(targetFull).isFile()) {
         res.status(404).json({ error: "target file not found", target });
         return;
       }
 
-      // Compute anchor from the raw markdown the client sent (client sends its
-      // own copy so the offsets are unambiguous).
       const anchor = computeAnchor(rawMarkdown, selStart, selEnd);
 
       const id = makeId();
       const slug = comment.trim().split(/\s+/).slice(0, 5).join(" ");
       const filename = filenameFor(id, slug);
-      const auditDir = path.join(cfg.wikiRoot, "audit");
+      const auditDir = path.join(wiki.path, "audit");
       fs.mkdirSync(auditDir, { recursive: true });
       const outPath = path.join(auditDir, filename);
 
@@ -114,7 +118,7 @@ export function handleAuditCreate(cfg: ServerConfig) {
         anchor_text: anchor.anchor_text,
         anchor_after: anchor.anchor_after,
         severity: severity as Severity,
-        author: (author && author.trim()) || cfg.author,
+        author: (author && author.trim()) || registry.config.author,
         source: "web-viewer",
         created: new Date().toISOString(),
         status: "open",
@@ -122,7 +126,12 @@ export function handleAuditCreate(cfg: ServerConfig) {
       };
 
       fs.writeFileSync(outPath, toMarkdown(entry), "utf-8");
-      res.json({ id, filename, path: path.relative(cfg.wikiRoot, outPath).split(path.sep).join("/"), entry });
+      res.json({
+        id,
+        filename,
+        path: path.relative(wiki.path, outPath).split(path.sep).join("/"),
+        entry,
+      });
     } catch (err) {
       console.error("failed to create audit", err);
       res.status(500).json({ error: "failed to create audit", detail: String(err) });
@@ -130,8 +139,11 @@ export function handleAuditCreate(cfg: ServerConfig) {
   };
 }
 
-export function handleAuditResolve(cfg: ServerConfig) {
+export function handleAuditResolve(registry: WikiRegistry) {
   return (req: Request, res: Response) => {
+    const wiki = wikiOr400(registry, req, res);
+    if (!wiki) return;
+
     try {
       const id = req.params.id;
       if (!id || !/^\d{8}-\d{6}-[0-9a-f]{4}$/.test(id)) {
@@ -140,11 +152,10 @@ export function handleAuditResolve(cfg: ServerConfig) {
       }
       const { resolution } = req.body as { resolution?: string };
 
-      const openDir = path.join(cfg.wikiRoot, "audit");
-      const resolvedDir = path.join(cfg.wikiRoot, "audit/resolved");
+      const openDir = path.join(wiki.path, "audit");
+      const resolvedDir = path.join(wiki.path, "audit/resolved");
       fs.mkdirSync(resolvedDir, { recursive: true });
 
-      // Find the file whose name starts with the id.
       const candidate = fs.readdirSync(openDir).find((f) => f.startsWith(id));
       if (!candidate) {
         res.status(404).json({ error: "no open audit with that id" });
@@ -173,7 +184,6 @@ export function handleAuditResolve(cfg: ServerConfig) {
 }
 
 function replaceResolution(body: string, newBlock: string): string {
-  // Find "# Resolution" section; replace or append.
   const re = /# Resolution[\s\S]*$/;
   if (re.test(body)) {
     return body.replace(re, `# Resolution\n\n${newBlock}`);

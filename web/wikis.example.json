@@ -1,0 +1,15 @@
+{
+  "defaultWikiId": "research",
+  "wikis": [
+    {
+      "id": "research",
+      "name": "AI Research",
+      "path": "/Users/you/wikis/research"
+    },
+    {
+      "id": "work-notes",
+      "name": "Work Notes",
+      "path": "/Users/you/wikis/work"
+    }
+  ]
+}

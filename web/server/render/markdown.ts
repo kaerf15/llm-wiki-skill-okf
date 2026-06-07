@@ -7,7 +7,7 @@ import texmath from "markdown-it-texmath";
 import katex from "katex";
 import path from "node:path";
 import fs from "node:fs";
-import { wikilinksPlugin, type WikilinkResolver } from "./wikilinks.js";
+import { resolveWikiLink } from "../links.js";
 
 export interface RenderedPage {
   html: string;
@@ -41,23 +41,31 @@ export function createRenderer(opts: RendererOptions) {
     katexOptions: { throwOnError: false, strict: false },
   });
 
-  const resolver: WikilinkResolver = (target) => {
-    // Try a few resolutions: exact relative path, match by stem under wiki/.
-    const candidate = findPage(opts.wikiRoot, target);
-    if (candidate) {
-      const rel = path.relative(opts.wikiRoot, candidate).split(path.sep).join("/");
-      return {
-        href: `/?page=${encodeURIComponent(rel)}`,
-        exists: true,
-      };
-    }
-    return {
-      href: `/?page=${encodeURIComponent(target)}`,
-      exists: false,
-    };
-  };
+  const defaultLinkOpen =
+    md.renderer.rules.link_open ??
+    ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
 
-  md.use(wikilinksPlugin, resolver);
+  md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+    const token = tokens[idx]!;
+    const href = token.attrGet("href");
+    if (href && !/^(https?:|mailto:)/i.test(href)) {
+      const fromRel = typeof env?.currentFile === "string" ? env.currentFile : undefined;
+      const wikiId = typeof env?.wikiId === "string" ? env.wikiId : undefined;
+      const resolved = resolveWikiLink(opts.wikiRoot, fromRel, href);
+      if (resolved) {
+        const hashIdx = href.indexOf("#");
+        const hash = hashIdx >= 0 ? href.slice(hashIdx) : "";
+        const wikiParam = wikiId ? `wiki=${encodeURIComponent(wikiId)}&` : "";
+        token.attrSet(
+          "href",
+          `/?${wikiParam}page=${encodeURIComponent(resolved.path)}${hash}`,
+        );
+        token.attrJoin("class", resolved.exists ? "wiki-link wiki-link-alive" : "wiki-link wiki-link-dead");
+        token.attrSet("data-wiki-target", resolved.path);
+      }
+    }
+    return defaultLinkOpen(tokens, idx, options, env, self);
+  };
 
   // Attach data-source-line to every top-level block token so the client can
   // map DOM selections back to source lines.
@@ -86,9 +94,9 @@ export function createRenderer(opts: RendererOptions) {
   };
 
   return {
-    render(rawMarkdown: string): RenderedPage {
+    render(rawMarkdown: string, currentFile?: string, wikiId?: string): RenderedPage {
       const { frontmatter, body, title } = stripFrontmatter(rawMarkdown);
-      const html = md.render(body);
+      const html = md.render(body, { currentFile, wikiId });
       return { html, frontmatter, rawMarkdown, title };
     },
   };
@@ -113,7 +121,6 @@ function stripFrontmatter(text: string): {
   let frontmatter: Record<string, unknown> | null = null;
   let body = text;
   if (m) {
-    // We don't need full YAML parsing here — keep it for display only.
     frontmatter = {};
     for (const line of m[1]!.split("\n")) {
       const idx = line.indexOf(":");
@@ -131,11 +138,7 @@ function stripFrontmatter(text: string): {
 }
 
 /**
- * Resolve a wikilink target to a file under wikiRoot. Tries:
- *   - the exact relative path as given
- *   - that path + ".md"
- *   - a search for any md file whose stem === target
- *   - a search for any md file whose basename === target
+ * Resolve a link target to a file under wikiRoot.
  */
 export function findPage(wikiRoot: string, target: string): string | null {
   const tryPath = (rel: string): string | null => {
@@ -147,11 +150,9 @@ export function findPage(wikiRoot: string, target: string): string | null {
   const direct = tryPath(target) || tryPath(target + ".md");
   if (direct) return direct;
 
-  // Fallback: scan wiki/ for matching stem.
   const wikiDir = path.join(wikiRoot, "wiki");
   if (!fs.existsSync(wikiDir)) return null;
-  const match = findByStem(wikiDir, target);
-  return match;
+  return findByStem(wikiDir, target);
 }
 
 function findByStem(dir: string, target: string): string | null {

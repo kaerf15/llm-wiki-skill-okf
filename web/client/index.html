@@ -13,6 +13,7 @@
     <header id="topbar" class="glass">
       <div class="topbar-left">
         <span class="brand"><span class="brand-dot"></span>LLM Wiki</span>
+        <select id="wiki-select" class="wiki-select" title="Switch wiki"></select>
         <span id="wiki-title"></span>
       </div>
       <div class="topbar-right">
@@ -36,9 +37,13 @@
 
     <aside id="sidebar-right" class="glass">
       <header>
+        <h2>Backlinks</h2>
+      </header>
+      <div id="backlink-list"><p class="muted" style="padding: 4px 6px; font-size: 12.5px;">—</p></div>
+      <header class="sidebar-section-header">
         <h2>Open audits</h2>
       </header>
-      <div id="audit-list"><p class="muted" style="padding: 14px;">—</p></div>
+      <div id="audit-list"><p class="muted" style="padding: 4px 6px; font-size: 12.5px;">—</p></div>
     </aside>
 
     <div id="feedback-popover" class="hidden">

@@ -25,23 +25,98 @@ if (command === "install") {
   process.exit(command === "help" ? 0 : 1);
 }
 
+function defaultConfigPath() {
+  if (process.platform === "win32") {
+    const base =
+      process.env.LOCALAPPDATA ?? path.join(os.homedir(), "AppData", "Local");
+    return path.join(base, "llm-wiki", "wikis.json");
+  }
+  if (process.platform === "darwin") {
+    return path.join(
+      os.homedir(),
+      "Library",
+      "Application Support",
+      "llm-wiki",
+      "wikis.json",
+    );
+  }
+  return path.join(os.homedir(), ".config", "llm-wiki", "wikis.json");
+}
+
+function slugFromPath(wikiPath) {
+  const base = path.basename(path.resolve(wikiPath));
+  const slug = base
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "wiki";
+}
+
+function loadConfig(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return { wikis: [] };
+  }
+  return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function saveConfig(filePath, config) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+}
+
+function mergeWikiPaths(existing, wikiPaths) {
+  const byPath = new Map();
+  for (const w of existing.wikis ?? []) {
+    byPath.set(path.resolve(w.path), w);
+  }
+  for (const raw of wikiPaths) {
+    const resolved = path.resolve(raw);
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+      fail(`error: wiki root does not exist or is not a directory: ${resolved}`);
+    }
+    const id = slugFromPath(resolved);
+    byPath.set(resolved, {
+      id,
+      name: path.basename(resolved),
+      path: resolved,
+    });
+  }
+  const wikis = Array.from(byPath.values());
+  if (wikis.length === 0) {
+    fail("error: at least one --wiki path is required");
+  }
+  const defaultWikiId =
+    existing.defaultWikiId && wikis.some((w) => w.id === existing.defaultWikiId)
+      ? existing.defaultWikiId
+      : wikis[0].id;
+  return { defaultWikiId, wikis };
+}
+
 function install() {
-  const wiki = options.wiki ? path.resolve(options.wiki) : null;
-  if (!wiki) {
-    fail("error: --wiki <path> is required for install");
+  const wikiPaths = options.wikis ?? [];
+  if (wikiPaths.length === 0) {
+    fail("error: at least one --wiki <path> is required for install");
   }
-  if (!fs.existsSync(wiki) || !fs.statSync(wiki).isDirectory()) {
-    fail(`error: wiki root does not exist or is not a directory: ${wiki}`);
-  }
+
+  const configPath = options.wikisConfig
+    ? path.resolve(options.wikisConfig)
+    : defaultConfigPath();
+  const merged = mergeWikiPaths(loadConfig(configPath), wikiPaths);
+  saveConfig(configPath, merged);
 
   const port = parsePort(options.port);
   const host = options.host ?? DEFAULT_HOST;
   const author = options.author;
 
+  console.log(`Updated wikis config: ${configPath}`);
+  for (const w of merged.wikis) {
+    console.log(`  - ${w.id}: ${w.path}`);
+  }
+
   if (process.platform === "darwin") {
-    installMac({ wiki, port, host, author });
+    installMac({ configPath, port, host, author });
   } else if (process.platform === "win32") {
-    installWindows({ wiki, port, host, author });
+    installWindows({ configPath, port, host, author });
   } else {
     fail("error: autostart install currently supports macOS and Windows only");
   }
@@ -57,7 +132,7 @@ function uninstall() {
   }
 }
 
-function installMac({ wiki, port, host, author }) {
+function installMac({ configPath, port, host, author }) {
   const launchAgents = path.join(os.homedir(), "Library", "LaunchAgents");
   const logsDir = path.join(os.homedir(), "Library", "Logs");
   const appDir = path.join(os.homedir(), "Library", "Application Support", "llm-wiki");
@@ -67,7 +142,11 @@ function installMac({ wiki, port, host, author }) {
   fs.mkdirSync(logsDir, { recursive: true });
   fs.mkdirSync(appDir, { recursive: true });
 
-  fs.writeFileSync(runnerPath, buildShellRunner({ wiki, port, host, author }), "utf8");
+  fs.writeFileSync(
+    runnerPath,
+    buildShellRunner({ configPath, port, host, author }),
+    "utf8",
+  );
   fs.chmodSync(runnerPath, 0o755);
 
   const plist = `<?xml version="1.0" encoding="UTF-8"?>
@@ -130,14 +209,18 @@ function uninstallMac() {
   console.log(`Removed macOS autostart: ${plistPath}`);
 }
 
-function installWindows({ wiki, port, host, author }) {
+function installWindows({ configPath, port, host, author }) {
   const appDir = path.join(
     process.env.LOCALAPPDATA ?? path.join(os.homedir(), "AppData", "Local"),
     "llm-wiki",
   );
   const runnerPath = path.join(appDir, "llm-wiki-web.cmd");
   fs.mkdirSync(appDir, { recursive: true });
-  fs.writeFileSync(runnerPath, buildWindowsRunner({ wiki, port, host, author }), "utf8");
+  fs.writeFileSync(
+    runnerPath,
+    buildWindowsRunner({ configPath, port, host, author }),
+    "utf8",
+  );
 
   run("schtasks", [
     "/Create",
@@ -169,13 +252,13 @@ function uninstallWindows() {
   console.log(`Removed Windows autostart task: ${WINDOWS_TASK_NAME}`);
 }
 
-function buildShellRunner({ wiki, port, host, author }) {
+function buildStartArgs({ configPath, port, host, author }) {
   const args = [
     "npm",
     "start",
     "--",
-    "--wiki",
-    wiki,
+    "--wikis-config",
+    configPath,
     "--port",
     String(port),
     "--host",
@@ -184,6 +267,11 @@ function buildShellRunner({ wiki, port, host, author }) {
   if (author) {
     args.push("--author", author);
   }
+  return args;
+}
+
+function buildShellRunner({ configPath, port, host, author }) {
+  const args = buildStartArgs({ configPath, port, host, author });
   return `#!/bin/zsh
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 cd ${shellQuote(webDir)}
@@ -191,32 +279,22 @@ exec ${args.map(shellQuote).join(" ")}
 `;
 }
 
-function buildWindowsRunner({ wiki, port, host, author }) {
-  const args = [
-    "npm",
-    "start",
-    "--",
-    "--wiki",
-    wiki,
-    "--port",
-    String(port),
-    "--host",
-    host,
-  ];
-  if (author) {
-    args.push("--author", author);
-  }
+function buildWindowsRunner({ configPath, port, host, author }) {
+  const args = buildStartArgs({ configPath, port, host, author });
   return `@echo off\r\ncd /d ${cmdQuote(webDir)}\r\n${args.map(cmdQuote).join(" ")}\r\n`;
 }
 
 function parseArgs(argv) {
-  const parsed = { command: argv[0] ?? "help", options: {} };
+  const parsed = { command: argv[0] ?? "help", options: { wikis: [] } };
   for (let i = 1; i < argv.length; i++) {
     const arg = argv[i];
     switch (arg) {
       case "--wiki":
       case "-w":
-        parsed.options.wiki = argv[++i];
+        parsed.options.wikis.push(argv[++i]);
+        break;
+      case "--wikis-config":
+        parsed.options.wikisConfig = argv[++i];
         break;
       case "--port":
       case "-p":
@@ -280,11 +358,17 @@ function fail(message) {
 function printHelp() {
   console.log(`
 Usage:
-  npm run autostart:install -- --wiki <wiki-root> [--port 4875] [--host 127.0.0.1] [--author name]
+  npm run autostart:install -- --wiki <path> [--wiki <path> ...] [options]
   npm run autostart:uninstall
 
-Installs a user-level startup service for the local llm-wiki web viewer.
-The service runs from this web directory and points at your Obsidian vault/wiki
-via --wiki. It does not copy web files into the wiki.
+Options:
+  -w, --wiki <path>           Wiki root (repeatable). Merged into wikis.json.
+      --wikis-config <file>   Config file path (default: ~/Library/.../llm-wiki/wikis.json)
+  -p, --port <n>              Port (default: 4875)
+      --host <addr>           Bind address (default: 127.0.0.1)
+      --author <name>         Audit author name
+
+Installs a user-level startup service. Each --wiki is registered in wikis.json
+so the web UI can switch between multiple wikis.
 `);
 }

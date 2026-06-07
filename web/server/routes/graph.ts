@@ -1,14 +1,21 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Request, Response } from "express";
-import type { ServerConfig } from "../config.js";
+import type { WikiRegistry } from "../config.js";
+import { wikiOr400 } from "./helpers.js";
+import {
+  collectMdFiles,
+  extractMarkdownLinks,
+  extractTitle,
+  resolveWikiLinkTarget,
+} from "../links.js";
 
 export interface GraphNode {
-  id: string; // path relative to wikiRoot, e.g. "wiki/concepts/Transformers.md"
-  label: string; // display name (stem, e.g. "Transformers")
-  path: string; // same as id, kept explicit for client
-  group: string; // concepts | entities | summaries | other
-  degree: number; // in + out link count, used for node sizing
+  id: string;
+  label: string;
+  path: string;
+  group: string;
+  degree: number;
   title: string | null;
 }
 
@@ -22,18 +29,11 @@ export interface GraphData {
   edges: GraphEdge[];
 }
 
-const WIKILINK_RE = /\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/g;
-
 export function buildGraph(wikiRoot: string): GraphData {
   const wikiDir = path.join(wikiRoot, "wiki");
   if (!fs.existsSync(wikiDir)) return { nodes: [], edges: [] };
 
   const files = collectMdFiles(wikiDir);
-
-  // Build a lookup table keyed by both the stem ("Transformers") and the
-  // relative-to-wiki path (e.g. "concepts/Transformers"), so wikilinks can
-  // resolve in either form.
-  const byKey: Map<string, string> = new Map(); // key → rel-from-wikiRoot path
   const nodes: Map<string, GraphNode> = new Map();
 
   for (const f of files) {
@@ -44,38 +44,29 @@ export function buildGraph(wikiRoot: string): GraphData {
     const group = parts.length > 1 ? parts[0]! : "other";
     const title = extractTitle(fs.readFileSync(f, "utf-8")) ?? stem;
 
-    const node: GraphNode = {
+    nodes.set(id, {
       id,
       label: stem,
       path: id,
       group,
       degree: 0,
       title,
-    };
-    nodes.set(id, node);
-    byKey.set(stem, id);
-    byKey.set(relFromWiki.replace(/\.md$/, ""), id);
-    // Also index by basename without extension in lowercase as a last-resort alias
-    byKey.set(stem.toLowerCase(), id);
+    });
   }
 
-  // Pass 2: build edges. Parse wikilinks per file and resolve targets.
   const edges: GraphEdge[] = [];
   const seenEdges = new Set<string>();
+
   for (const f of files) {
-    const relFromWiki = path.relative(wikiDir, f).split(path.sep).join("/");
-    const srcId = `wiki/${relFromWiki}`;
+    const relFromRoot = path.relative(wikiRoot, f).split(path.sep).join("/");
+    const srcId = relFromRoot.replace(/\\/g, "/");
     const text = fs.readFileSync(f, "utf-8");
-    WIKILINK_RE.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = WIKILINK_RE.exec(text))) {
-      const target = m[1]!.trim();
-      if (target.startsWith("#")) continue; // anchor-only links — ignore
-      const tgtId =
-        byKey.get(target) ??
-        byKey.get(target.replace(/\.md$/, "")) ??
-        byKey.get(target.toLowerCase());
-      if (!tgtId || tgtId === srcId) continue;
+
+    for (const link of extractMarkdownLinks(text)) {
+      if (/^(https?:|mailto:|#)/i.test(link.href)) continue;
+      const tgtId = resolveWikiLinkTarget(wikiRoot, relFromRoot, link.href);
+      if (!tgtId || !tgtId.startsWith("wiki/") || tgtId === srcId) continue;
+      if (!nodes.has(tgtId)) continue;
 
       const key = `${srcId}→${tgtId}`;
       if (seenEdges.has(key)) continue;
@@ -93,30 +84,10 @@ export function buildGraph(wikiRoot: string): GraphData {
   };
 }
 
-function collectMdFiles(dir: string): string[] {
-  const out: string[] = [];
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name.startsWith(".")) continue;
-    const full = path.join(dir, e.name);
-    if (e.isDirectory()) out.push(...collectMdFiles(full));
-    else if (e.isFile() && e.name.endsWith(".md")) out.push(full);
-  }
-  return out;
-}
-
-function extractTitle(text: string): string | null {
-  // frontmatter title
-  const fm = /^---\n([\s\S]*?)\n---/.exec(text);
-  if (fm) {
-    const t = /^title:\s*(.+)$/m.exec(fm[1]!);
-    if (t) return t[1]!.trim().replace(/^["']|["']$/g, "");
-  }
-  const h1 = /^#\s+(.+?)\s*$/m.exec(text);
-  return h1 ? h1[1]! : null;
-}
-
-export function handleGraph(cfg: ServerConfig) {
-  return (_req: Request, res: Response) => {
-    res.json(buildGraph(cfg.wikiRoot));
+export function handleGraph(registry: WikiRegistry) {
+  return (req: Request, res: Response) => {
+    const wiki = wikiOr400(registry, req, res);
+    if (!wiki) return;
+    res.json(buildGraph(wiki.path));
   };
 }

@@ -1,62 +1,25 @@
 # Tooling Tips
 
-Practical setup and usage notes for the LLM Wiki stack.
-
-## Obsidian setup
-
-### Essential settings
-
-1. **Attachment folder**: Settings → Files and links → "Attachment folder path" → `raw/assets/`.
-2. **New file location**: Settings → Files and links → "Default location for new notes" → `wiki/concepts/`.
-3. **Download attachments hotkey**: Settings → Hotkeys → search "Download attachments" → bind to `Ctrl+Shift+D`. After clipping an article, hit the hotkey to download all images locally.
-
-### Plugins to install
-
-- **`plugins/obsidian-audit/`** (this repo) — select text → add feedback → writes to `audit/`. See "Audit plugin" section below.
-- **Obsidian Web Clipper** (browser extension) — converts any webpage to Markdown and saves to your vault. Configure to save to `raw/articles/`.
-- **Dataview** (optional) — query frontmatter fields; build dynamic tables of articles by tag, date, source count.
-- **Marp** (optional) — render wiki content as slide decks directly from Obsidian.
-
-### Graph view
-
-Graph view (`Ctrl+G`) is the best way to see your wiki's shape:
-- Dense hub = a well-connected concept page.
-- Isolated node = orphan page (needs inbound links or removal). `lint_wiki.py` flags these.
-- Cluster = a sub-topic worth a dedicated folder-split under `wiki/concepts/`.
-
-## Audit plugin — `plugins/obsidian-audit/`
-
-Installs into a local Obsidian vault. Workflow:
-
-1. Build the plugin once:
-   ```bash
-   cd plugins/obsidian-audit
-   npm install
-   npm run build
-   ```
-2. Symlink (or copy) the plugin folder into your vault:
-   ```bash
-   npm run link -- "/path/to/your/vault"
-   ```
-3. In Obsidian, enable Community Plugins, then enable "LLM Wiki Audit".
-4. In the plugin settings, set:
-   - **Wiki root** — path relative to the vault root (usually `.`).
-   - **Audit directory** — path relative to the wiki root (default `audit`).
-   - **Author** — your name.
-
-Commands (bind to hotkeys if you like):
-- **`Audit: Add feedback on selection`** — opens a modal with severity + comment → writes an audit file.
-- **`Audit: List open feedback for current file`** — shows a notice summarising open audits targeting the current file.
-- **`Audit: Open audit folder`** — reveals `audit/` in the file explorer.
-
-The plugin uses the shared `audit-shared` library, so files it writes are byte-identical in shape to files the web viewer writes.
-
 ## Web viewer — `web/`
 
-Local Node.js server that renders the wiki with mermaid, KaTeX, and wikilinks, and lets you file feedback from your browser.
+Local Node.js server: mermaid, KaTeX, backlinks, knowledge graph, audit feedback, **multi-wiki switching**.
 
-Keep `web/` outside the Obsidian vault. Treat it as a local app, then point it
-at the vault/wiki with `--wiki`.
+### Multi-wiki config
+
+Register wikis in `wikis.json` (see `web/wikis.example.json`). The top-bar dropdown switches wikis without restarting the server.
+
+```bash
+npm start -- --wiki ~/wikis/a --wiki ~/wikis/b
+npm start -- --wikis-config ~/Library/Application\ Support/llm-wiki/wikis.json
+```
+
+Autostart merges `--wiki` paths into the default config file:
+
+```bash
+npm run autostart:install -- --wiki ~/wikis/research --wiki ~/wikis/work
+```
+
+### Single wiki
 
 ```bash
 cd web
@@ -65,122 +28,63 @@ npm run build
 npm start -- --wiki "/path/to/wiki-root"
 ```
 
-Then open `http://127.0.0.1:4875`. Features:
-- Left sidebar: navigation tree built from `wiki/index.md`.
-- Main pane: rendered markdown, mermaid diagrams rendered client-side, formulas rendered server-side.
-- Right sidebar: list of open audits for the current page.
-- Select any text → "💬 Add feedback" popover appears → submit → writes an audit file to `<wiki-root>/audit/`.
+Open `http://127.0.0.1:4875`.
 
-The server binds to `127.0.0.1` only. No auth; intended for personal use on your own machine.
+Features:
+- **Navigation tree** from `wiki/index.md`
+- **Rendered pages** with internal SPA navigation
+- **Backlinks** — pages that link to the current page (right sidebar)
+- **Knowledge graph** — force-directed view of link structure (G key)
+- **Feedback** — select text → comment → writes to `audit/`
 
-### Web viewer autostart
-
-Install a user-level startup service:
-
-```bash
-cd web
-npm run autostart:install -- --wiki "/path/to/wiki-root"
-```
-
-Defaults:
-- Port: `4875`
-- Host: `127.0.0.1`
-- macOS service: `~/Library/LaunchAgents/com.llm-wiki.web.plist`
-- Windows service: per-user Task Scheduler task named `LLM Wiki Web`
-
-Remove it:
+### Autostart
 
 ```bash
-npm run autostart:uninstall
+npm run autostart:install -- --wiki "/path/to/wiki-root" --port 4875 --author "lym"
+npm run autostart:uninstall   # remove
 ```
 
-## Obsidian Web Clipper usage
+macOS: `~/Library/LaunchAgents/com.llm-wiki.web.plist`  
+Windows: Task Scheduler task `LLM Wiki Web`
 
-1. Install from [obsidian.md/clipper](https://obsidian.md/clipper).
-2. Configure template to save to `raw/articles/`.
-3. Clip an article → hit the download-images hotkey → file is ready for `ingest`.
+## Skill installation
 
-For complex pages (paywalled, dynamic): copy-paste the main text manually, save as `raw/articles/<slug>.md`.
+Install this skill to the wiki root so any compatible Agent can discover it:
+
+```text
+<wiki-root>/.agents/skills/llm-wiki/
+```
+
+Cursor users may optionally symlink to `.cursor/skills/llm-wiki/`.
 
 ## MarkItDown importer
-
-For PDFs, Office files, HTML exports, and other non-Markdown sources, use the
-optional importer before running `ingest`.
 
 ```bash
 python3 -m pip install --user 'markitdown[all]'
 python3 scripts/import_source.py "/path/to/source.pdf" "/path/to/wiki-root" --kind papers
 ```
 
-Kinds:
-- `articles` — web pages, HTML exports, clipped articles
-- `papers` — papers and long-form PDFs
-- `notes` — meeting notes, decks, spreadsheets, miscellaneous documents
+Kinds: `articles` · `papers` · `notes`
 
-The script writes Markdown into `raw/<kind>/` and prints the generated path.
-MarkItDown: [microsoft/markitdown](https://github.com/microsoft/markitdown).
-
-## qmd (optional, for large wikis)
-
-[qmd](https://github.com/tobi/qmd) is a local semantic search engine for Markdown files with BM25 + vector hybrid search. Useful when the wiki grows beyond ~100 pages and `wiki/index.md` scanning becomes slow.
+## qmd (optional, large wikis)
 
 ```bash
 pip install qmd
 qmd collection add wiki/ --name my-wiki
 qmd embed
-qmd query "what are the tradeoffs of RAG vs wiki" --collection my-wiki
+qmd query "your question" --collection my-wiki
 ```
-
-qmd also has an MCP server so LLMs can use it as a native tool.
-
-## Marp — generating slide decks from wiki content
-
-```markdown
----
-marp: true
-theme: default
----
-
-# Slide title
-
-Content here
-
----
-
-# Next slide
-```
-
-Install the Marp plugin in Obsidian to preview/export directly.
-
-## Generating charts
-
-For quantitative analyses, ask the LLM to generate a matplotlib script and save to `outputs/charts/`:
-
-```python
-# outputs/charts/my-analysis.py
-import matplotlib.pyplot as plt
-# ... chart code ...
-plt.savefig('outputs/charts/my-analysis.png')
-```
-
-Embed in a wiki article: `![[my-analysis.png]]`.
 
 ## Git workflow
 
-The wiki is a git repo. Benefits:
-- Version history for every article.
-- Branching for experimental research directions.
-- Audit files are tracked, so "who suggested this and when" is first-class.
+Track the wiki as a git repo. Keep large binaries out — use `raw/refs/` pointer files.
 
-```bash
-git add .
-git commit -m "ingest: 3 papers on attention mechanisms"
-git push
+## Charts and outputs
+
+Save matplotlib scripts to `outputs/charts/`. Embed in articles:
+
+```markdown
+![analysis chart](../outputs/charts/my-analysis.png)
 ```
 
-Keep large files (PDFs >10 MB, raw images at full resolution, video, model weights) in `.gitignore`. Use the raw file policy: pointer files in `raw/refs/`, not copies.
-
-## Interactive HTML outputs
-
-For complex analyses, the LLM can generate interactive HTML with JavaScript and save to `outputs/`. These can be opened in a browser or embedded in Obsidian with the HTML plugin.
-
+Interactive HTML can live under `outputs/` and open in a browser.

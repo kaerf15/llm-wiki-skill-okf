@@ -161,10 +161,30 @@ main { grid-area: main; }
 }
 .topbar-left {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 14px;
   min-width: 0;
 }
+
+.wiki-select {
+  max-width: 220px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  font-family: var(--font-sans);
+  color: var(--ctp-text);
+  background: rgba(49, 50, 68, 0.55);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.wiki-select:hover {
+  border-color: var(--ctp-surface2);
+}
+.wiki-select:focus {
+  outline: none;
+  border-color: var(--ctp-lavender);
+}
+
 .brand {
   font-size: 15px;
   font-weight: 600;
@@ -432,8 +452,8 @@ article a:hover {
   border-bottom-color: var(--ctp-sapphire);
 }
 
-/* wikilinks */
-article .wikilink {
+/* wiki internal links */
+article .wiki-link {
   color: var(--ctp-lavender);
   text-decoration: none;
   border-bottom: 1px dashed rgba(203, 166, 247, 0.35);
@@ -441,15 +461,36 @@ article .wikilink {
   border-radius: 3px;
   transition: background 140ms ease, color 140ms ease;
 }
-article .wikilink:hover {
+article .wiki-link:hover {
   color: var(--fg-strong);
   background: rgba(203, 166, 247, 0.12);
   border-bottom-color: var(--ctp-lavender);
 }
-article .wikilink-dead {
+article .wiki-link-dead {
   color: var(--ctp-red);
   border-bottom-color: rgba(243, 139, 168, 0.35);
   border-bottom-style: dotted;
+}
+
+.backlink-item {
+  display: block;
+  padding: 6px 8px;
+  margin: 2px 0;
+  font-size: 12.5px;
+  color: var(--ctp-lavender);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: background 140ms ease;
+}
+.backlink-item:hover {
+  background: rgba(203, 166, 247, 0.1);
+  color: var(--fg-strong);
+}
+
+.sidebar-section-header {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
 }
 
 /* code */

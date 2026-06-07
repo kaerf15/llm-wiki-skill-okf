@@ -1,10 +1,10 @@
 # llm-wiki
 
-**面向 Cursor + Obsidian 的 LLM Wiki Agent Skill。**
+**面向多种 Agent 工具（Cursor、Trae、Claude Code 等）的 LLM Wiki Skill。**
 
 它把资料先沉淀成一个长期维护的 Markdown 知识库，再让 Agent 持续执行 `compile`、`ingest`、`query`、`lint`、`audit`。这不是传统 RAG 每次重新检索原文，而是让 LLM 把原始资料编译成可交叉链接、可审计、可迭代的 wiki。
 
-本项目基于 [lewislulu/llm-wiki-skill](https://github.com/lewislulu/llm-wiki-skill) 改造，重点适配 Cursor + Obsidian 使用场景，包括 `AGENTS.md` 主入口、本地 Web viewer 自启动、MarkItDown 导入器和中文部署说明。
+本项目基于 [lewislulu/llm-wiki-skill](https://github.com/lewislulu/llm-wiki-skill) 改造，适配通用 Agent 工作流：skill 安装在 `.agents/skills/`、wiki 使用标准 Markdown 链接、本地 Web viewer 提供阅读体验（反向链接、知识图谱、反馈入口）。
 
 灵感来自 [Andrej Karpathy 的 llm-wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)。
 
@@ -12,31 +12,22 @@
 
 你负责提供资料、提出问题、指出 AI 写错的地方。Agent 负责读资料、写 wiki、维护链接、更新索引、处理反馈。
 
-项目里包含三部分：
+项目里包含两部分：
 
-- `llm-wiki/`：给 Cursor/Agent 读取的 skill，定义 wiki 结构和五类操作。
-- `plugins/obsidian-audit/`：Obsidian 插件，选中文本后写反馈，反馈会落到 `audit/`。
-- `web/`：本地预览服务，渲染 Markdown、Mermaid、KaTeX 和 wikilinks，也可以在浏览器里提交反馈。
-
-`plugins/obsidian-audit/` 和 `web/` 共用 `audit-shared/`，所以两边写出来的审计文件格式一致。
+- `llm-wiki/`：Agent skill，定义 wiki 结构和五类操作。
+- `web/`：本地预览服务，渲染 Markdown、Mermaid、KaTeX，提供反向链接与知识图谱，可在浏览器里提交反馈到 `audit/`。
 
 ## 极简部署流程
 
-面向普通用户，推荐这样用：
-
-1. 安装前置依赖：Python 3、Node.js 20+、Git、Obsidian。
-2. 打开 Obsidian，新建一个 vault，作为你的知识库。
-3. 打开 Cursor，选择 `Open Folder`，打开刚才创建的 Obsidian vault。
-4. 把下面“一键部署提示词”直接发给 Cursor。
-5. Cursor 会自动下载本项目、初始化当前 vault、安装 Web viewer、配置开机自启动、链接 Obsidian 插件。
-
-用户不需要手动下载本仓库，也不需要知道 `web/` 应该放在哪里。
+1. 安装前置依赖：Python 3、Node.js 20+、Git。
+2. 创建一个普通文件夹作为 wiki 根目录。
+3. 用 Cursor / Trae 等 Agent 工具打开该文件夹。
+4. 把下面「一键部署提示词」发给 Agent。
+5. Agent 会自动下载本项目、初始化 wiki、安装 skill；Web viewer 若本机尚未部署才安装，已部署则只注册当前 wiki。
 
 ## 推荐安装位置
 
-工具代码不要放进 Obsidian 知识库里。
-
-推荐结构：
+工具代码不要放进 wiki 知识库里。
 
 ```text
 工具代码:
@@ -44,29 +35,21 @@ macOS:   ~/Library/Application Support/llm-wiki/
 Windows: %LOCALAPPDATA%\llm-wiki\
 
 知识库:
-任意 Obsidian vault，例如 ~/Documents/MyVault/
+任意目录，例如 ~/Documents/my-wiki/
 ```
 
-部署时会临时 clone 本仓库，完成后只保留迁移后的运行组件：
+部署完成后保留：
 
-- `web/` 和 `audit-shared/`：迁移到用户级应用目录。
-- `llm-wiki/` skill：复制到 vault 的 `.cursor/skills/llm-wiki/`。
-- Obsidian 插件：复制到 vault 的 `.obsidian/plugins/llm-wiki-audit/`。
-- 临时 clone 仓库：部署完成后删除。
-
-`web/` 作为本地服务运行，只通过 `--wiki` 指向你的 Obsidian vault / wiki root。
+- `web/` 和 `audit-shared/` → 用户级应用目录
+- `llm-wiki/` skill → `<WIKI_ROOT>/.agents/skills/llm-wiki/`
+- 临时 clone → 删除
 
 ## 前置依赖
 
-部署前需要用户电脑已经安装：
-
-- Python 3：用于 `scaffold.py`、`lint_wiki.py`、`audit_review.py`、`import_source.py`
-- Node.js 20+：用于 `web/` 和 Obsidian 插件构建；Node.js 会自带 `npm`
-- Git：用于从 GitHub 下载本项目
-- Obsidian：用于打开和浏览 vault
-- MarkItDown：默认安装到用户级 Python 环境，用于导入 PDF、Office、HTML 等非 Markdown 文件
-
-检查命令：
+- Python 3：`scaffold.py`、`lint_wiki.py`、`audit_review.py`、`import_source.py`
+- Node.js 20+：`web/` 构建与运行
+- Git：从 GitHub 下载本项目
+- MarkItDown（可选）：导入 PDF、Office、HTML
 
 ```bash
 python3 --version
@@ -75,269 +58,186 @@ npm -v
 git --version
 ```
 
-Windows 用户如果没有 `python3` 命令，可尝试：
+## 一键部署提示词
 
-```powershell
-py -3 --version
-```
-
-## 一键交给 Cursor 的部署提示词
-
-先用 Cursor 打开你的 Obsidian vault 文件夹，然后把下面整段提示词直接复制给 Cursor。
+先用 Agent 打开 wiki 根目录，复制下面整段提示词：
 
 ```text
-请在当前 Cursor workspace（也就是我当前打开的 Obsidian vault）里部署 llm-wiki。
+请在当前 workspace（Wiki 根目录）里部署 llm-wiki。
 
 请严格按下面要求执行：
-- 当前 workspace 就是 Wiki 根目录 / Obsidian vault。
-- 不要把 web/、audit-shared/、plugins/ 这些服务/构建目录复制到我的 Obsidian vault 里。
-- 需要把 `llm-wiki/` 这个 skill 安装到当前 vault：`<WIKI_ROOT>/.cursor/skills/llm-wiki/`。
-- 请从 GitHub 下载项目：https://github.com/kaerf15/llm-wiki-skill
-- GitHub clone 只作为临时安装源，部署完成后必须删除。
-- 运行组件迁移到用户级应用目录：
-  - macOS：~/Library/Application Support/llm-wiki/
-  - Windows：%LOCALAPPDATA%\llm-wiki\
+- 当前 workspace 就是 WIKI_ROOT。
+- 不要把 web/、audit-shared/ 复制到 WIKI_ROOT 里。
+- 需要把 llm-wiki skill 安装到：<WIKI_ROOT>/.agents/skills/llm-wiki/
+- 从 GitHub 下载：https://github.com/kaerf15/llm-wiki-skill-v2
+- clone 只作临时安装源，部署完成后必须删除。
+- 运行组件在用户级 APP_ROOT（Web 是全局共享，多个 wiki 共用同一个 viewer）。
 - Web 端口：4875
 - 作者：lym
 
 参数：
-- REPO_URL=https://github.com/kaerf15/llm-wiki-skill
-- WIKI_ROOT=当前 Cursor workspace 根目录
-- APP_ROOT=用户级应用目录下的 llm-wiki 目录
-- TEMP_CLONE=系统临时目录下的 llm-wiki-skill clone
+- REPO_URL=https://github.com/kaerf15/llm-wiki-skill-v2
+- WIKI_ROOT=当前 workspace 根目录
+- APP_ROOT=用户级应用目录下的 llm-wiki
+- WIKIS_CONFIG=<APP_ROOT>/wikis.json
+- TEMP_CLONE=系统临时目录下的 llm-wiki-skill-v2 clone
 - PORT=4875
 - AUTHOR=lym
 
+部署原则（重要）：
+- Web viewer 是用户级全局服务，多个 wiki 共用；不要每次部署 wiki 都重装 Web。
+- 若检测到 Web 已部署且可用，跳过 Web 迁移/构建/自启动，只做 wiki 侧工作。
+- 每个 WIKI_ROOT 仍需安装/更新 skill，并把路径注册进 wikis.json。
+
+「Web 已部署」判定（满足即可跳过 Web 重装）：
+- <APP_ROOT>/web 与 <APP_ROOT>/audit-shared 存在
+- http://127.0.0.1:4875/api/config 可访问
+- （可选）macOS LaunchAgent com.llm-wiki.web 或 Windows 任务 LLM Wiki Web 已存在
+
 目标：
-1. 先检查前置依赖：
-   - 运行 `python3 --version`；如果 Windows 没有 `python3`，尝试 `py -3 --version`。
-   - 运行 `node -v`，确认 Node.js 版本是 20 或更高。
-   - 运行 `npm -v`，确认 npm 可用。
-   - 运行 `git --version`，确认 Git 可用。
-   - 如果 Python 3、Node.js 20+、npm 或 Git 不存在，请停止部署，并告诉我需要先安装什么。
-2. 确认当前 Cursor workspace 是一个真实目录。把这个目录作为 WIKI_ROOT。
-3. 根据操作系统确定 APP_ROOT：
-   - macOS：~/Library/Application Support/llm-wiki
-   - Windows：%LOCALAPPDATA%\llm-wiki
-4. 在系统临时目录创建 TEMP_CLONE，从 REPO_URL clone 到 TEMP_CLONE。不要 clone 到 WIKI_ROOT，也不要把整个仓库放进 vault。
-5. 如果 WIKI_ROOT 还不是 llm-wiki 结构，请运行：
+1. 检查前置依赖：python3、node 20+、npm、git。缺失则停止并说明。
+2. 确认 WIKI_ROOT 是真实目录；确定 APP_ROOT 与 WIKIS_CONFIG。
+3. clone REPO_URL 到 TEMP_CLONE（不要 clone 到 WIKI_ROOT）。
+4. 若 WIKI_ROOT 尚无 llm-wiki 结构，运行：
    python3 <TEMP_CLONE>/llm-wiki/scripts/scaffold.py "<WIKI_ROOT>" "My Knowledge Base"
-   生成 AGENTS.md、CLAUDE.md、raw/、wiki/、audit/、log/、outputs/。
-6. 安装项目内 skill 到当前 vault：
-   - 创建目录："<WIKI_ROOT>/.cursor/skills"
-   - 将 "<TEMP_CLONE>/llm-wiki" 复制到 "<WIKI_ROOT>/.cursor/skills/llm-wiki"
-   - 如果目标目录已存在，先删除旧的 "<WIKI_ROOT>/.cursor/skills/llm-wiki"，再复制最新版。
-7. 迁移 Web runtime 到 APP_ROOT：
-   - 创建 APP_ROOT。
-   - 删除旧的 "<APP_ROOT>/audit-shared" 和 "<APP_ROOT>/web"。
-   - 将 "<TEMP_CLONE>/audit-shared" 复制到 "<APP_ROOT>/audit-shared"。
-   - 将 "<TEMP_CLONE>/web" 复制到 "<APP_ROOT>/web"。
-8. 构建共享库：
-   cd <APP_ROOT>
-   cd audit-shared
-   npm install
-   npm run build
-   cd ..
-9. 构建 Web viewer 并安装开机自启动：
-   cd web
-   npm install
-   npm run build
+5. 安装/更新 skill（每次部署 wiki 都要做）：
+   - 创建 <WIKI_ROOT>/.agents/skills
+   - 复制 <TEMP_CLONE>/llm-wiki 到 <WIKI_ROOT>/.agents/skills/llm-wiki
+   - 若已存在则先删旧版再复制最新版
+6. 检测 Web 是否已部署（见上文判定）：
+   - 若已部署：跳过步骤 7–8，仅执行步骤 9 把 WIKI_ROOT 注册进 wikis.json
+   - 若未部署：执行步骤 7–9 完整安装 Web
+7. 【仅 Web 未部署时】迁移 Web runtime 到 APP_ROOT：
+   - 创建 APP_ROOT
+   - 复制 audit-shared/ 和 web/ 到 APP_ROOT
+8. 【仅 Web 未部署时】构建并安装自启动：
+   cd <APP_ROOT>/audit-shared && npm install && npm run build
+   cd <APP_ROOT>/web && npm install && npm run build
    npm run autostart:install -- --wiki "<WIKI_ROOT>" --port 4875 --author "lym"
-   cd ..
-10. 构建并安装 Obsidian 插件，不要使用 symlink 指向 TEMP_CLONE：
-   - 在 TEMP_CLONE 中构建插件：
-     cd <TEMP_CLONE>/audit-shared
-     npm install
-     npm run build
-     cd ../plugins/obsidian-audit
-     npm install
-     npm run build
-   - 创建目录："<WIKI_ROOT>/.obsidian/plugins/llm-wiki-audit"
-   - 将以下文件复制到该目录：
-     - "<TEMP_CLONE>/plugins/obsidian-audit/manifest.json"
-     - "<TEMP_CLONE>/plugins/obsidian-audit/main.js"
-     - "<TEMP_CLONE>/plugins/obsidian-audit/styles.css"
-   - 如果目标目录已存在，先删除旧目录再复制。
-11. 不再需要运行下面这种链接命令，因为它会让 vault 依赖 TEMP_CLONE，不符合本次部署要求：
-   npm run link -- "<WIKI_ROOT>"
-12. 默认全局安装 MarkItDown 到用户级 Python 环境：
-   - macOS / Linux：`python3 -m pip install --user 'markitdown[all]'`
-   - Windows：`py -3 -m pip install --user "markitdown[all]"`
-13. 验证：
-   - 检查 http://127.0.0.1:4875 是否可访问。
-   - 检查 "<WIKI_ROOT>/AGENTS.md" 存在。
-   - 检查 "<WIKI_ROOT>/CLAUDE.md" 内容是 @AGENTS.md。
-   - 检查 "<WIKI_ROOT>/audit" 存在。
-   - 检查 "<WIKI_ROOT>/.cursor/skills/llm-wiki/SKILL.md" 存在。
-   - 检查 "<WIKI_ROOT>/.obsidian/plugins/llm-wiki-audit/manifest.json" 存在。
-   - 检查 "<WIKI_ROOT>/.obsidian/plugins/llm-wiki-audit/main.js" 存在。
-   - 检查 "<APP_ROOT>/web" 和 "<APP_ROOT>/audit-shared" 存在。
-   - 在 Obsidian 中提示我启用 Community Plugins 里的 "LLM Wiki Audit"。
-14. 确认以上部署和验证都完成后，删除 TEMP_CLONE。删除前必须确认：
-   - Skill 已经复制到 "<WIKI_ROOT>/.cursor/skills/llm-wiki"。
-   - Web viewer runtime 已经迁移到 "<APP_ROOT>/web"。
-   - Obsidian 插件已经复制到 "<WIKI_ROOT>/.obsidian/plugins/llm-wiki-audit"。
-   - Web viewer 自启动已经安装完成。
-15. 最后告诉我：
-   - Web viewer 地址
-   - APP_ROOT 位置
-   - Skill 安装目录
-   - Obsidian 插件安装目录
-   - 自启动是否安装成功
-   - TEMP_CLONE 是否已删除
-   - 如果有失败，给出失败命令和下一步修复建议。
+9. 注册当前 wiki 到 wikis.json（已部署或未部署都要做）：
+   - 若 WIKI_ROOT 尚未在 wikis.json 中，运行：
+     cd <APP_ROOT>/web && npm run autostart:install -- --wiki "<WIKI_ROOT>" --port 4875 --author "lym"
+   - autostart:install 会合并写入 wikis.json，不会重复注册同一路径
+10. 安装 MarkItDown（若尚未安装）：
+    python3 -m pip install --user 'markitdown[all]'
+11. 验证：
+    - http://127.0.0.1:4875 可访问
+    - /api/config 的 wikis 列表包含当前 WIKI_ROOT
+    - <WIKI_ROOT>/AGENTS.md 存在
+    - <WIKI_ROOT>/.agents/skills/llm-wiki/SKILL.md 存在
+12. 验证通过后删除 TEMP_CLONE。
+13. 汇报：Web 是否跳过重装、Web 地址、APP_ROOT、wikis.json 路径、skill 路径、当前 wiki 是否已注册。
 ```
 
 ## 手动快速开始
 
-创建一个新 wiki：
-
 ```bash
 python3 llm-wiki/scripts/scaffold.py ~/my-wiki "My Research Topic"
+cp -r llm-wiki ~/.agents/skills/llm-wiki   # 或复制到 ~/my-wiki/.agents/skills/llm-wiki
 ```
 
-加入已有 Markdown 资料：
-
-```bash
-cp my-article.md ~/my-wiki/raw/articles/
-```
-
-导入 PDF、Office、HTML 等非 Markdown 资料：
+导入非 Markdown 资料：
 
 ```bash
 python3 -m pip install --user 'markitdown[all]'
 python3 llm-wiki/scripts/import_source.py my-paper.pdf ~/my-wiki --kind papers
 ```
 
-然后告诉 Cursor：
+告诉 Agent：
 
 ```text
 使用 llm-wiki skill，ingest raw/papers/my-paper.md
 ```
 
-周期性检查：
+健康检查：
 
 ```bash
 python3 llm-wiki/scripts/lint_wiki.py ~/my-wiki
 python3 llm-wiki/scripts/audit_review.py ~/my-wiki --open
 ```
 
-## Web Viewer
+## 链接格式
 
-默认地址：
+Wiki 内容使用标准 Markdown 链接：
 
-```text
-http://127.0.0.1:4875
+```markdown
+[Transformers](wiki/concepts/Transformers/index.md)
+[Andrej Karpathy](wiki/entities/Andrej%20Karpathy.md)
 ```
 
-手动启动：
+Web viewer 负责阅读体验：只显示链接文字、SPA 内导航、反向链接、知识图谱、死链高亮。
+
+## Web Viewer
+
+默认地址：`http://127.0.0.1:4875`
+
+支持**多个 wiki**：路径写在 `wikis.json`，顶栏下拉框切换。
+
+配置文件位置（autostart 默认写入）：
+
+```text
+macOS:   ~/Library/Application Support/llm-wiki/wikis.json
+Windows: %LOCALAPPDATA%\llm-wiki\wikis.json
+Linux:   ~/.config/llm-wiki/wikis.json
+```
+
+示例见 `web/wikis.example.json`：
+
+```json
+{
+  "defaultWikiId": "research",
+  "wikis": [
+    { "id": "research", "name": "AI Research", "path": "/Users/you/wikis/research" },
+    { "id": "work", "name": "Work Notes", "path": "/Users/you/wikis/work" }
+  ]
+}
+```
+
+手动启动（单个 wiki）：
 
 ```bash
 cd audit-shared && npm install && npm run build && cd ..
 cd web && npm install && npm run build
-npm start -- --wiki "/path/to/your/wiki-root"
+npm start -- --wiki "/path/to/wiki-root"
 ```
 
-安装开机自启动：
+多个 wiki：
+
+```bash
+npm start -- --wiki ~/wikis/research --wiki ~/wikis/work
+# 或使用配置文件
+npm start -- --wikis-config ~/Library/Application\ Support/llm-wiki/wikis.json
+```
+
+URL 深链：`http://127.0.0.1:4875/?wiki=research&page=wiki/index.md`
+
+安装自启动（可重复 `--wiki` 追加到 wikis.json）：
 
 ```bash
 cd web
-npm run autostart:install -- --wiki "/path/to/your/wiki-root" --port 4875 --author "lym"
+npm run autostart:install -- --wiki "/path/to/wiki-a" --wiki "/path/to/wiki-b" --port 4875 --author "lym"
 ```
-
-卸载自启动：
-
-```bash
-cd web
-npm run autostart:uninstall
-```
-
-自启动行为：
-
-- macOS：创建 `~/Library/LaunchAgents/com.llm-wiki.web.plist`
-- Windows：创建当前用户的 Task Scheduler 登录任务 `LLM Wiki Web`
-- 服务只绑定 `127.0.0.1`
-- 不建议直接暴露到公网
-
-## Obsidian 插件
-
-傻瓜式部署会把插件文件复制到：
-
-```text
-<wiki-root>/.obsidian/plugins/llm-wiki-audit/
-```
-
-然后在 Obsidian 里启用：
-
-```text
-Settings → Community plugins → LLM Wiki Audit
-```
-
-插件命令：
-
-- `Audit: Add feedback on selection`
-- `Audit: List open feedback for current file`
-- `Audit: Open audit folder`
 
 ## MarkItDown 导入器
-
-项目内置 `llm-wiki/scripts/import_source.py`。部署时默认把 MarkItDown 安装到用户级 Python 环境，供所有 vault 复用。
-
-安装：
-
-```bash
-python3 -m pip install --user 'markitdown[all]'
-```
-
-Windows：
-
-```powershell
-py -3 -m pip install --user "markitdown[all]"
-```
-
-导入：
 
 ```bash
 python3 llm-wiki/scripts/import_source.py "/path/to/source.pdf" "/path/to/wiki-root" --kind papers
 ```
 
-可选 `--kind`：
-
-- `articles`：网页、HTML、文章
-- `papers`：论文、PDF、长文档
-- `notes`：会议纪要、PPT、表格、杂项资料
-
-MarkItDown 项目地址：[microsoft/markitdown](https://github.com/microsoft/markitdown)。
+可选 `--kind`：`articles` · `papers` · `notes`
 
 ## 目录结构
 
 ```text
 llm-wiki-skill/
-├── llm-wiki/
-│   ├── SKILL.md
-│   ├── references/
-│   │   ├── schema-guide.md
-│   │   ├── article-guide.md
-│   │   ├── log-guide.md
-│   │   ├── audit-guide.md
-│   │   └── tooling-tips.md
-│   └── scripts/
-│       ├── scaffold.py
-│       ├── import_source.py
-│       ├── import_source_test.py
-│       ├── lint_wiki.py
-│       └── audit_review.py
-├── audit-shared/
-├── plugins/obsidian-audit/
-└── web/
-```
+├── llm-wiki/           # Agent skill
+├── audit-shared/       # 审计 schema（web 使用）
+└── web/                # 本地预览服务
 
-生成后的 wiki 目录结构：
-
-```text
 <wiki-root>/
 ├── AGENTS.md
-├── CLAUDE.md          # 内容为 @AGENTS.md
+├── CLAUDE.md
+├── .agents/skills/llm-wiki/
 ├── raw/
 ├── wiki/
 ├── audit/
@@ -347,16 +247,14 @@ llm-wiki-skill/
 
 ## 使用场景
 
-- 研究一个主题，持续吸收论文、文章、网页。
-- 把 Obsidian vault 变成可由 Agent 维护的知识库。
-- 用审计文件长期记录“AI 哪里写错了”。
-- 为团队资料建立可追踪、可迭代的 wiki。
+- 研究一个主题，持续吸收论文、文章、网页
+- 用 Agent 维护可交叉引用的个人/团队知识库
+- 用 audit 长期记录「AI 哪里写错了」
+- 在浏览器里浏览 wiki、查看反向链接和知识图谱
 
 ## 作者
 
-lym [973007435@qq.com](mailto:973007435@qq.com)
-
-GitHub: [kaerf15](https://github.com/kaerf15)
+lym [973007435@qq.com](mailto:973007435@qq.com) · GitHub: [kaerf15](https://github.com/kaerf15)
 
 ## License
 

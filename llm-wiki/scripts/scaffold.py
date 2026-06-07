@@ -158,7 +158,7 @@ Sources to ingest:
 > One-sentence scope of the wiki.
 
 ## 🔖 Navigation
-- [[#Concepts]] · [[#Entities]] · [[#Summaries]] · [[#Open Questions]]
+- [Concepts](#concepts) · [Entities](#entities) · [Summaries](#summaries) · [Open Questions](#open-questions)
 
 ## Concepts
 
@@ -184,7 +184,7 @@ Sources to ingest:
 
 Next steps:
   1. Fill in AGENTS.md — define scope and naming conventions
-  2. Add sources to raw/ (use Obsidian Web Clipper for web articles)
+  2. Add sources to raw/ (save web articles as .md under raw/articles/)
   3. Run ingest: tell your LLM agent "ingest raw/<file>.md"
   4. Ask questions: "what does the wiki say about X?"
   5. Run lint periodically:  python3 scripts/lint_wiki.py {root}

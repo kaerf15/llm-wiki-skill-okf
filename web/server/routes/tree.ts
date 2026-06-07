@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Request, Response } from "express";
-import type { ServerConfig } from "../config.js";
+import type { WikiRegistry } from "../config.js";
+import { wikiOr400 } from "./helpers.js";
 
 export interface TreeNode {
   name: string;
@@ -45,8 +46,10 @@ function walk(wikiRoot: string, dir: string, rel: string): TreeNode {
   return { name: path.basename(dir), path: rel, kind: "dir", children };
 }
 
-export function handleTree(cfg: ServerConfig) {
-  return (_req: Request, res: Response) => {
-    res.json(buildTree(cfg.wikiRoot));
+export function handleTree(registry: WikiRegistry) {
+  return (req: Request, res: Response) => {
+    const wiki = wikiOr400(registry, req, res);
+    if (!wiki) return;
+    res.json(buildTree(wiki.path));
   };
 }

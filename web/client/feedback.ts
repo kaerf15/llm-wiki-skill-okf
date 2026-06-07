@@ -1,4 +1,5 @@
 interface State {
+  currentWikiId: string;
   currentPath: string;
   rawMarkdown: string;
   author: string;
@@ -101,9 +102,9 @@ export function installFeedbackUI(opts: FeedbackUIOptions): void {
       alert("Comment is empty");
       return;
     }
-    const { currentPath, rawMarkdown, author } = opts.getState();
+    const { currentWikiId, currentPath, rawMarkdown, author } = opts.getState();
     try {
-      const res = await fetch("/api/audit", {
+      const res = await fetch(`/api/audit?wiki=${encodeURIComponent(currentWikiId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
