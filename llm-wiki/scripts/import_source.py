@@ -6,7 +6,7 @@ Usage:
     python3 import_source.py <source-file> <wiki-root> [--kind articles|papers|notes] [--title "Title"]
 
 MarkItDown is an optional dependency:
-    pip install 'markitdown[all]'
+    python3 -m pip install --user 'markitdown[all]'
 """
 
 from __future__ import annotations
@@ -78,7 +78,8 @@ def convert_with_markitdown(source: Path) -> str:
         from markitdown import MarkItDown
     except ImportError as exc:
         raise RuntimeError(
-            "MarkItDown is not installed. Install it with: pip install 'markitdown[all]'"
+            "MarkItDown is not installed. Install it with: "
+            "python3 -m pip install --user 'markitdown[all]'"
         ) from exc
 
     result = MarkItDown().convert(str(source))

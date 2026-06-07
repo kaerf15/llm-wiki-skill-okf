@@ -108,7 +108,7 @@ For PDFs, Office files, HTML exports, and other non-Markdown sources, use the
 optional importer before running `ingest`.
 
 ```bash
-pip install 'markitdown[all]'
+python3 -m pip install --user 'markitdown[all]'
 python3 scripts/import_source.py "/path/to/source.pdf" "/path/to/wiki-root" --kind papers
 ```
 

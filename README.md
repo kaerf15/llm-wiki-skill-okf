@@ -57,7 +57,7 @@ Windows: %LOCALAPPDATA%\llm-wiki\
 - Node.js 20+：用于 `web/` 和 Obsidian 插件构建；Node.js 会自带 `npm`
 - Git：用于从 GitHub 下载本项目
 - Obsidian：用于打开和浏览 vault
-- MarkItDown：可选，仅在导入 PDF、Office、HTML 等非 Markdown 文件时需要
+- MarkItDown：默认安装到用户级 Python 环境，用于导入 PDF、Office、HTML 等非 Markdown 文件
 
 检查命令：
 
@@ -135,8 +135,9 @@ py -3 --version
    npm run build
    npm run link -- "<WIKI_ROOT>"
    cd ../..
-10. 可选安装 MarkItDown：
-   pip install 'markitdown[all]'
+10. 默认全局安装 MarkItDown 到用户级 Python 环境：
+   - macOS / Linux：`python3 -m pip install --user 'markitdown[all]'`
+   - Windows：`py -3 -m pip install --user "markitdown[all]"`
 11. 验证：
    - 检查 http://127.0.0.1:4875 是否可访问。
    - 检查 "<WIKI_ROOT>/AGENTS.md" 存在。
@@ -144,12 +145,16 @@ py -3 --version
    - 检查 "<WIKI_ROOT>/audit" 存在。
    - 检查 "<WIKI_ROOT>/.cursor/skills/llm-wiki/SKILL.md" 存在。
    - 在 Obsidian 中提示我启用 Community Plugins 里的 "LLM Wiki Audit"。
-12. 最后告诉我：
+12. 确认以上部署和验证都完成后，删除第 3 步确定的工具目录中 clone 下来的仓库目录，避免用户级应用目录残留源码。删除前必须确认：
+   - Skill 已经复制到 "<WIKI_ROOT>/.cursor/skills/llm-wiki"。
+   - Web viewer 自启动已经安装完成。
+   - Obsidian 插件已经链接到当前 vault。
+13. 最后告诉我：
    - Web viewer 地址
-   - 工具代码安装目录
    - Skill 安装目录
    - 自启动是否安装成功
    - Obsidian 插件目录位置
+   - 临时 clone 仓库是否已删除
    - 如果有失败，给出失败命令和下一步修复建议。
 ```
 
@@ -170,7 +175,7 @@ cp my-article.md ~/my-wiki/raw/articles/
 导入 PDF、Office、HTML 等非 Markdown 资料：
 
 ```bash
-pip install 'markitdown[all]'
+python3 -m pip install --user 'markitdown[all]'
 python3 llm-wiki/scripts/import_source.py my-paper.pdf ~/my-wiki --kind papers
 ```
 
@@ -250,12 +255,18 @@ Settings → Community plugins → LLM Wiki Audit
 
 ## MarkItDown 导入器
 
-项目内置 `llm-wiki/scripts/import_source.py`，但 MarkItDown 是可选依赖。
+项目内置 `llm-wiki/scripts/import_source.py`。部署时默认把 MarkItDown 安装到用户级 Python 环境，供所有 vault 复用。
 
 安装：
 
 ```bash
-pip install 'markitdown[all]'
+python3 -m pip install --user 'markitdown[all]'
+```
+
+Windows：
+
+```powershell
+py -3 -m pip install --user "markitdown[all]"
 ```
 
 导入：

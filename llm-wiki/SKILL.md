@@ -105,10 +105,10 @@ Both render in the web viewer (server-side KaTeX, client-side mermaid) and in Ob
 
 Small text-based sources (`md`, `txt`) → copy into `raw/<subfolder>/`.
 
-Document sources (`pdf`, `docx`, `pptx`, `xlsx`, `html`, etc.) → convert to Markdown first with the optional MarkItDown importer:
+Document sources (`pdf`, `docx`, `pptx`, `xlsx`, `html`, etc.) → convert to Markdown first with the MarkItDown importer. Install MarkItDown once in the user's Python environment:
 
 ```bash
-pip install 'markitdown[all]'
+python3 -m pip install --user 'markitdown[all]'
 python3 scripts/import_source.py <source-file> <wiki-root> --kind papers
 ```
 
