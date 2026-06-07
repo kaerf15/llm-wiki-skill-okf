@@ -31,7 +31,7 @@ test("uses frontmatter titles as graph node labels", () => {
   const labelsByPath = new Map(graph.nodes.map((node) => [node.path, node.label]));
 
   assert.equal(graph.nodes.length, 4);
-  assert.equal(labelsByPath.get("wiki/index.md"), "Index — Demo");
+  assert.equal(labelsByPath.get("wiki/index.md"), "index");
   assert.equal(labelsByPath.get("wiki/concepts/Growth Loop.md"), "Growth Flywheel");
   assert.equal(labelsByPath.get("wiki/concepts/Brand System/overview.md"), "Brand Strategy");
   assert.equal(labelsByPath.get("wiki/entities/Andrej Karpathy.md"), "Andrej Karpathy");

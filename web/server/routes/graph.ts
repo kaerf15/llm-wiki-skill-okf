@@ -6,7 +6,7 @@ import { wikiOr400 } from "./helpers.js";
 import {
   collectMdFiles,
   extractMarkdownLinks,
-  extractTitle,
+  wikiPageLabel,
   resolveWikiLinkTarget,
 } from "../links.js";
 
@@ -41,16 +41,16 @@ export function buildGraph(wikiRoot: string): GraphData {
     const id = `wiki/${relFromWiki}`;
     const parts = relFromWiki.split("/");
     const group = parts.length > 1 ? parts[0]! : "other";
-    const stem = path.basename(f, ".md");
-    const title = extractTitle(fs.readFileSync(f, "utf-8")) ?? stem;
+    const text = fs.readFileSync(f, "utf-8");
+    const label = wikiPageLabel(id, text);
 
     nodes.set(id, {
       id,
-      label: title,
+      label,
       path: id,
       group,
       degree: 0,
-      title,
+      title: label,
     });
   }
 

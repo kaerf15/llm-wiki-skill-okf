@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Request, Response } from "express";
 import type { WikiRegistry } from "../config.js";
-import { extractTitle } from "../links.js";
+import { wikiPageLabel } from "../links.js";
 import { wikiOr400 } from "./helpers.js";
 
 export interface TreeNode {
@@ -34,6 +34,7 @@ function walk(wikiRoot: string, dir: string, rel: string): TreeNode {
     });
 
   const children: TreeNode[] = [];
+  let indexNode: TreeNode | null = null;
   for (const e of entries) {
     const full = path.join(dir, e.name);
     const nodeRel = path.posix.join(rel, e.name);
@@ -41,11 +42,19 @@ function walk(wikiRoot: string, dir: string, rel: string): TreeNode {
       children.push(walk(wikiRoot, full, nodeRel));
     } else if (e.name.endsWith(".md")) {
       const text = fs.readFileSync(full, "utf-8");
-      const stem = e.name.replace(/\.md$/, "");
-      const title = extractTitle(text) ?? stem;
-      children.push({ name: title, path: nodeRel, kind: "file" });
+      const node: TreeNode = {
+        name: wikiPageLabel(nodeRel, text),
+        path: nodeRel,
+        kind: "file",
+      };
+      if (e.name === "index.md" && rel === "wiki") {
+        indexNode = node;
+        continue;
+      }
+      children.push(node);
     }
   }
+  if (indexNode) children.unshift(indexNode);
 
   return { name: path.basename(dir), path: rel, kind: "dir", children };
 }

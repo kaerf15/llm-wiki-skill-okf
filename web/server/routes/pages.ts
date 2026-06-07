@@ -3,6 +3,7 @@ import path from "node:path";
 import type { Request, Response } from "express";
 import type { WikiRegistry } from "../config.js";
 import { createRenderer } from "../render/markdown.js";
+import { wikiPageLabel } from "../links.js";
 import { wikiOr400 } from "./helpers.js";
 
 const renderers = new Map<string, ReturnType<typeof createRenderer>>();
@@ -52,7 +53,7 @@ export function handlePage(registry: WikiRegistry) {
     res.json({
       wikiId: wiki.id,
       path: relPosix,
-      title: rendered.title,
+      title: wikiPageLabel(relPosix, rawMarkdown),
       frontmatter: rendered.frontmatter,
       html: rendered.html,
       raw: rendered.rawMarkdown,

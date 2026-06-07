@@ -127,6 +127,19 @@ export function collectMdFiles(dir: string): string[] {
   return out;
 }
 
+export const WIKI_INDEX_PATH = "wiki/index.md";
+
+export function isWikiIndexPath(relPath: string): boolean {
+  return relPath.replace(/\\/g, "/") === WIKI_INDEX_PATH;
+}
+
+/** Chrome label for nav, top bar, and graph. wiki/index.md is always "index". */
+export function wikiPageLabel(relFromRoot: string, text: string): string {
+  if (isWikiIndexPath(relFromRoot)) return "index";
+  const stem = path.basename(relFromRoot, ".md");
+  return extractTitle(text) ?? stem;
+}
+
 export function extractTitle(text: string): string | null {
   const fm = /^---\n([\s\S]*?)\n---/.exec(text);
   if (fm) {

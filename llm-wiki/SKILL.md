@@ -54,7 +54,7 @@ A single concept page should **never** try to cover a complex topic end-to-end. 
 
 - Prefer a **named hub file**: `wiki/concepts/<Topic>.md` where the **filename equals `title:`** (e.g. `title: 战略核爆品` → `wiki/concepts/战略核爆品.md`).
 - Only if needed, add a **shallow** aspect folder: `wiki/concepts/<Topic>/<aspect>.md` (one extra level max).
-- **Never** create `index.md` under subfolders — the **only** `index.md` is `wiki/index.md`.
+- **Never** create `index.md` under subfolders — the **only** `index.md` is `wiki/index.md`. Its H1 may be descriptive (`# Index — <Topic>`), but the web viewer always shows it as **index** in nav, top bar, and graph.
 - Keep paths shallow: `wiki/<category>/<file>.md` or `wiki/<category>/<topic>/<aspect>.md`. No deeper nesting.
 - In `wiki/index.md`, list pages with indented bullets when a topic has aspect files.
 
