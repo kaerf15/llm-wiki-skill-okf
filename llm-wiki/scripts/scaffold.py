@@ -18,6 +18,8 @@ Layout (same as legacy llm-wiki, but wiki/ → wiki-okf/ with OKF inside):
         └── ...
 
 If basename(workspace) == kb-dir, knowledge lives at workspace root (no nested subfolder).
+
+Agent: ask user for --kb-dir before running; default wiki-okf only after user confirms.
 """
 
 from __future__ import annotations

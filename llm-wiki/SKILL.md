@@ -6,10 +6,10 @@ description: >-
   sources, compiles cross-linked concept pages, answers queries against the
   corpus, lints for OKF health, and audits human feedback from the web viewer.
   Use when the user asks to (1) create/deploy/scaffold a new OKF knowledge base,
-  (2) ingest/compile/query/lint/audit an existing bundle. Before creating: ask
-  for KB type if omitted (default: research). Layout matches legacy llm-wiki:
-  raw/log/audit at project root; AI content in wiki-okf/ subfolder (renamed wiki/)
-  with OKF format inside. Use --kb-dir wiki-okf (default).
+  (2) ingest/compile/query/lint/audit an existing bundle. Before creating: ALWAYS
+  ask for the knowledge folder name (KB_DIR; default wiki-okf if user confirms default)
+  and KB type if omitted (default research). Never scaffold with default KB_DIR without
+  asking first unless the user already specified the name in the same request.
 ---
 
 # LLM Wiki — OKF Knowledge Base Pattern
@@ -32,6 +32,18 @@ The bundle is a living artifact with **five operations** — `compile`, `ingest`
 
 Read `references/create-guide.md` before every create. **Project directory ≠ knowledge base directory** — never scaffold inside `llm-wiki-skill-okf` tool repo.
 
+### 创建前必问（deploy 提示词 / 直接调 skill 均适用）
+
+**未开始 scaffold 之前**，先向用户确认。用户在本轮消息里**已经明确给出**的项可直接采用，**缺的必须先问**，问完仍无答复才用默认值。
+
+| 项 | 用户本轮已说 | 用户没说 → **必须先问** | 问完仍无答复 |
+|----|------------|------------------------|-------------|
+| **知识库文件夹名（KB_DIR / `--kb-dir`）** | 用用户给的名称 | 「知识库文件夹叫什么？默认 **wiki-okf**（替代原 wiki/），用默认请直接说“默认”。」 | **`wiki-okf`** |
+| **知识库类型（KB_TYPE / `--type`）** | 用对应类型 | 「什么类型？research / catalog / operations / general」 | **`research`** |
+| **主题标题** | 用用户标题 | 可从文件夹名推导，或简短问一句 | 从 KB_DIR 推导 |
+
+**禁止**在用户未指定、也未被问过的情况下，静默使用默认 `wiki-okf` 直接创建。
+
 ### 解析路径（必遵 — read create-guide.md）
 
 **Project root = workspace。** AI 解析内容在 **`wiki-okf/`**（默认，替代 legacy `wiki/`），内部 OKF 格式。
@@ -48,15 +60,7 @@ raw/, log/, audit/, .agents/ → PROJECT_ROOT
 index.md, concepts/, entities/, summaries/ → KNOWLEDGE_ROOT
 ```
 
-Example: workspace `OKF/` → **`OKF/wiki-okf/index.md`** + **`OKF/raw/`**（同级，不是 concepts 散落根目录）。
-
-### Before creating: kb-dir, type, title
-
-| Field | User specified | User did not specify |
-|-------|----------------|---------------------|
-| **KB folder (`--kb-dir`)** | Use their name | **`wiki-okf`** |
-| **KB type** | `--type` matching intent | Ask → default **`research`** |
-| **Topic title** | Use their title | Derive from folder name |
+Example: workspace `OKF/` + KB_DIR `wiki-okf` → **`OKF/wiki-okf/index.md`** + **`OKF/raw/`**（同级）。
 
 ### Types → directory layout
 

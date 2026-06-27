@@ -152,6 +152,6 @@ External sources at the bottom of concept bodies:
 [2] [Internal runbook](https://wiki.internal/data/quality)
 ```
 
-## Workspace = bundle root
+## Project layout
 
-The user opens a dedicated folder (e.g. `~/Documents/OKF/`) as their Cursor workspace — that folder **is** the bundle root. Do not create nested `wiki/` or `wiki-okf/` subfolders. Legacy `wiki/concepts/` migrates to root-level `concepts/`.
+Workspace = project root (`raw/`, `log/`, `audit/`). AI-compiled OKF content lives in **`<KB_DIR>/`** (default `wiki-okf`, replaces legacy `wiki/`). **Always ask the user for KB_DIR before scaffolding**; use default only after they confirm.
