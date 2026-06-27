@@ -8,7 +8,8 @@ description: >-
   Use when the user asks to (1) create/deploy/scaffold a new OKF knowledge base,
   (2) ingest/compile/query/lint/audit an existing bundle. Before creating: ask
   for bundle folder name and KB type if omitted (defaults: wiki-okf, research).
-  Use the user's name and type when specified. Do not create unless asked.
+  Create bundle at WORKSPACE/KB_NAME subfolder unless workspace is already named KB_NAME.
+  Do not scatter concepts/raw at workspace root when workspace name differs from KB_NAME.
 ---
 
 # LLM Wiki — OKF Knowledge Base Pattern
@@ -30,6 +31,20 @@ The bundle is a living artifact with **five operations** — `compile`, `ingest`
 **Only create when the user asks** (deploy, scaffold, 建知识库, etc.). Do not scaffold proactively.
 
 Read `references/create-guide.md` before every create. **Project directory ≠ knowledge base directory** — never scaffold inside `llm-wiki-skill-okf` tool repo.
+
+### 解析 BUNDLE_ROOT（必遵 — read create-guide.md）
+
+**Knowledge base = subfolder named `KB_NAME` (default `wiki-okf`), NOT the workspace root** unless `basename(workspace) == KB_NAME`.
+
+```
+KB_NAME = user name or default wiki-okf
+if basename(WORKSPACE) == KB_NAME:
+  BUNDLE_ROOT = WORKSPACE
+else:
+  BUNDLE_ROOT = WORKSPACE / KB_NAME   # mkdir, scaffold HERE — never scatter at workspace root
+```
+
+Example: workspace `OKF/` + default name → **`OKF/wiki-okf/`** is the bundle. Tell user to open that folder.
 
 ### Before creating: name and type
 
@@ -53,13 +68,16 @@ Use what the user gave; ask for what's missing; then apply defaults.
 ### Create workflow
 
 ```bash
-mkdir -p <parent>/<folder-name>   # folder-name = user's name or wiki-okf
-python3 scripts/scaffold.py <BUNDLE_ROOT> "<Topic Title>" --type <type>
+# Example: workspace ~/OKF, KB_NAME wiki-okf → BUNDLE_ROOT=~/OKF/wiki-okf
+mkdir -p <WORKSPACE>/<KB_NAME>
+python3 scripts/scaffold.py <WORKSPACE>/<KB_NAME> "<Topic Title>" --type <type>
 mkdir -p <BUNDLE_ROOT>/.agents/skills
 cp -R <skill-source>/llm-wiki <BUNDLE_ROOT>/.agents/skills/llm-wiki
 ```
 
-If workspace is already the empty target folder, use `.` as `BUNDLE_ROOT`.
+Only use `BUNDLE_ROOT=.` when the opened folder is **already named** `KB_NAME` and empty.
+
+Do **not** run `scaffold.py .` when workspace is named `OKF` or anything other than `KB_NAME`.
 
 | `--type` | Use case | Concept folders |
 |----------|----------|-----------------|

@@ -1,109 +1,94 @@
 # Create Guide — 如何新建 OKF 知识库
 
-Skill **仅在用户明确要求创建知识库时**才执行 scaffold。用户没说要建，不要主动创建。
+Skill **仅在用户明确要求创建知识库时**才执行 scaffold。
 
-创建前必须弄清：**名称（文件夹名）** 和 **类型**。项目目录 ≠ 知识库目录。
+## 知识库目录是什么
+
+**知识库 = 一个名为 `<KB_NAME>` 的文件夹**（默认 `wiki-okf`），里面有 `index.md`、`concepts/`、`raw/` 等。
+
+```text
+OKF/                      ← 用户 workspace（容器，可以叫任意名）
+└── wiki-okf/              ← ★ 这才是知识库目录（BUNDLE_ROOT）
+    ├── BUNDLE.md
+    ├── index.md
+    ├── concepts/
+    ├── raw/
+    └── .agents/skills/llm-wiki/
+```
+
+**禁止**在 workspace 根（如 `OKF/`）直接生成 `concepts/`、`raw/`、`index.md` — 除非 workspace 文件夹**本身就叫** `wiki-okf`（或用户指定的 KB_NAME）。
+
+## 解析 BUNDLE_ROOT（必遵）
+
+```
+KB_NAME = 用户指定的名称；未指定则问；仍无则 wiki-okf
+WORKSPACE = 当前 Cursor 打开的文件夹绝对路径
+
+若 basename(WORKSPACE) == KB_NAME 且（为空或已是 bundle）:
+  BUNDLE_ROOT = WORKSPACE
+否则:
+  BUNDLE_ROOT = WORKSPACE / KB_NAME    ← 必须 mkdir 后 scaffold 到这里
+```
+
+| workspace 文件夹名 | KB_NAME | BUNDLE_ROOT |
+|--------------------|---------|-------------|
+| `OKF` | `wiki-okf`（默认） | `OKF/wiki-okf/` |
+| `Documents` | `wiki-okf` | `Documents/wiki-okf/` |
+| `wiki-okf` | `wiki-okf` | `wiki-okf/`（当前目录） |
+| `OKF` | `my-research`（用户指定） | `OKF/my-research/` |
+
+创建完成后告诉用户：**「知识库目录是 `<BUNDLE_ROOT>`，请在左侧点开 `<KB_NAME>` 文件夹。」**
 
 ## 何时创建
 
 | 用户说 | Agent 做 |
 |--------|----------|
-| 「帮我建一个知识库」「部署 llm-wiki」「scaffold」等 | 进入下方创建流程 |
-| 只问 OKF 是什么、怎么用 ingest | **不创建**，只回答 |
-| 已在现有知识库里 ingest / query | **不创建**，直接操作当前 bundle |
+| 「部署 llm-wiki」「建知识库」「scaffold」 | 按上表解析 BUNDLE_ROOT 后创建 |
+| 只问 OKF 是什么 | 不创建 |
+| 已在 bundle 里 ingest | 不创建 |
 
 ## 创建前：名称与类型
 
-**用户已说明的，直接用；未说明的，先问；问后仍没有的，用默认值。**
+| 项 | 用户说了 | 用户没说 |
+|----|--------|--------|
+| **KB_NAME（文件夹名）** | 用用户给的 | 先问；仍无 → **`wiki-okf`** |
+| **类型 `--type`** | 用对应类型 | 先问；仍无 → **`research`** |
 
-### 1. 知识库名称（文件夹名）
+| `--type` | 概念目录 |
+|----------|----------|
+| `research`（默认） | `concepts/` · `entities/` · `summaries/` |
+| `catalog` | `datasets/` · `tables/` · `metrics/` |
+| `operations` | `playbooks/` · `runbooks/` · `references/` |
+| `general` | `topics/` |
 
-- 用户**指定了名称**（如 `my-ai-wiki`、`sales-catalog`）→ **就用这个名称**作为文件夹名。
-- 用户**未指定** → **先问**：「知识库文件夹想叫什么？」
-- 用户表示随便 / 跳过 / 不回答 → 默认文件夹名 **`wiki-okf`**。
+## 标准命令
 
-最终路径示例：`~/Documents/<名称>/` 或用户指定的父目录 + `<名称>/`。
-
-### 2. 知识库类型
-
-- 用户**指定了类型** → 用对应 `--type` 和目录结构 scaffold。
-- 用户**未指定** → **先问**：「是什么类型的知识库？」并简要说明下表四选一。
-- 用户表示随便 / 跳过 / 不回答 → 默认类型 **`research`**。
-
-| `--type` | 适用场景 | 自动创建的 concept 目录 |
-|----------|----------|-------------------------|
-| `research`（**默认**） | 论文、文章、通用研究 | `concepts/` · `entities/` · `summaries/` |
-| `catalog` | 数据资产、表、指标 | `datasets/` · `tables/` · `metrics/` |
-| `operations` | 运维手册、SOP | `playbooks/` · `runbooks/` · `references/` |
-| `general` | 最小 starter | `topics/` |
-
-用户说「数据目录 / catalog / 表和指标」→ `--type catalog`。  
-用户说「运维 / runbook / SOP」→ `--type operations`。  
-其余或未说明 → `--type research`（默认）。
-
-### 3. 主题标题（可选）
-
-用于 `index.md`、`AGENTS.md` 的 H1。优先用用户给的描述；否则用知识库名称的友好写法（如 `sales-catalog` → `Sales Catalog`）。
-
-## 决策小结
-
-```
-用户要求创建？
-  否 → 不 scaffold
-  是 →
-    名称：用户给了 → 用用户的；没给 → 问；仍无 → wiki-okf
-    类型：用户给了 → 用对应 --type；没给 → 问；仍无 → research
-    BUNDLE_ROOT = <父目录>/<名称>/  （独立文件夹，不在工具项目里）
-    scaffold.py BUNDLE_ROOT "<主题标题>" --type <类型>
-    安装 skill 到 BUNDLE_ROOT/.agents/skills/llm-wiki/
+```bash
+# workspace=~/OKF, KB_NAME=wiki-okf → BUNDLE_ROOT=~/OKF/wiki-okf
+mkdir -p ~/OKF/wiki-okf
+python3 scripts/scaffold.py ~/OKF/wiki-okf "My Topic" --type research
+cp -R <skill-source>/llm-wiki ~/OKF/wiki-okf/.agents/skills/llm-wiki
 ```
 
 ## 两个目录，不要混
 
-| | 项目（工具代码） | 知识库（OKF bundle） |
-|--|------------------|----------------------|
-| 是什么 | llm-wiki-skill-okf 仓库 | 上面确定的 `<名称>/` 文件夹 |
-| 包含 | `llm-wiki/`、`web/`、`audit-shared/` | `index.md`、`concepts/` 等 |
-| workspace | 不要当知识库 | 用户应打开这个文件夹 |
+| | 工具项目 | 知识库 |
+|--|----------|--------|
+| 示例 | llm-wiki-skill-okf 仓库 | `…/wiki-okf/` 文件夹 |
+| 含 | `web/`、`llm-wiki/` 源码 | `index.md`、`concepts/` |
 
-**禁止**：在 `llm-wiki-skill-okf` 项目根下 scaffold。
-
-## 命令示例
-
-```bash
-# 用户名称=my-ai-wiki，类型未说 → 默认 research
-python3 scripts/scaffold.py ~/Documents/my-ai-wiki "My AI Wiki" --type research
-
-# 用户名称=sales-catalog，类型=catalog
-python3 scripts/scaffold.py ~/Documents/sales-catalog "Sales Catalog" --type catalog
-
-mkdir -p ~/Documents/my-ai-wiki/.agents/skills
-cp -R <skill-source>/llm-wiki ~/Documents/my-ai-wiki/.agents/skills/llm-wiki
-```
-
-用户 workspace **已是**目标文件夹（如用户新建的 `OKF/` 或 `wiki-okf/`）时，`BUNDLE_ROOT` 用 `.` — **该文件夹就是知识库根目录**：
-
-```bash
-python3 scripts/scaffold.py . "Sales Catalog" --type catalog
-```
-
-创建后根目录会出现 `BUNDLE.md`，说明本层文件夹即知识库。
+禁止在工具项目根 scaffold。禁止在 workspace 根 scatter（除非 workspace 名 == KB_NAME）。
 
 ## 创建完成后
 
-空骨架（只有 `index.md`、空 concept 目录）是正常的，ingest 后才有内容。
-
-**你打开的文件夹本身就是知识库目录**，不是还缺一个 `wiki-okf/` 子文件夹。  
-确认标志：根目录有 `BUNDLE.md`、`index.md`（含 `okf_version: "0.1"`）、`concepts/`、`raw/`。
-
-完整 OKF 内部结构见 `references/okf-guide.md`。
+- 空 `concepts/` 正常，ingest 后才有 `.md`
+- 确认：存在 **`<KB_NAME>/index.md`**（含 `okf_version: "0.1"`）和 **`<KB_NAME>/BUNDLE.md`**
 
 ## 常见错误
 
-| 错误 | 正确做法 |
-|------|----------|
-| 用户没要求就创建 | 等用户明确说「创建 / 部署 / scaffold」 |
-| 用户给了名称却改成 wiki-okf | **严格使用用户指定的文件夹名** |
-| 用户说了 catalog 却用 research | **按用户类型选 --type** |
-| 未问就用默认且不告知 | 默认值可以静默用，但创建前应至少尝试问一次 |
-| 在工具项目里建知识库 | 在独立路径 `<名称>/` 下建 |
+| 错误 | 正确 |
+|------|------|
+| 在 `OKF/` 根下直接建 concepts/ | 建 `OKF/wiki-okf/concepts/` |
+| 说「workspace 就是 bundle」 | workspace 是容器；**子文件夹 KB_NAME 才是 bundle** |
+| workspace 叫 OKF 就把 KB 也叫 OKF | KB 默认名是 **wiki-okf**，与 workspace 名无关 |
+| 在 llm-wiki-skill-okf 项目里 scaffold | 在用户 workspace 下的 `<KB_NAME>/` |

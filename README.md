@@ -23,15 +23,11 @@
 **知识库（OKF bundle）是独立文件夹**，由 skill 在用户指定路径创建（默认名 `wiki-okf`），例如 `~/Documents/wiki-okf/`。**不要**放在本仓库里，也**不要**把本仓库根目录当知识库。
 
 ```text
-llm-wiki-skill-okf/     ← 本项目（仅工具代码）
-├── llm-wiki/
-├── audit-shared/
-└── web/
-
-~/Documents/wiki-okf/   ← 知识库（skill 创建，用户 workspace）
-├── index.md
-├── concepts/ · raw/ · audit/
-└── .agents/skills/llm-wiki/
+~/Documents/              ← 可选：父目录 / workspace
+└── wiki-okf/               ← ★ 知识库目录（BUNDLE_ROOT）
+    ├── index.md
+    ├── concepts/ · raw/ · audit/
+    └── .agents/skills/llm-wiki/
 ```
 
 ## OKF 与创建规则
@@ -66,71 +62,65 @@ python3 llm-wiki/scripts/scaffold.py ~/Documents/sales-catalog "Sales Catalog" -
 
 ## 第一次创建（必读）
 
-**知识库 = 一个独立文件夹**，不是项目里的某个子模块。你 Cursor 左侧打开的那个文件夹，**本身就是知识库根目录**。
+### 知识库目录在哪
 
-### 正确流程（3 步）
+**知识库 = 名为 `wiki-okf` 的子文件夹**（名称可自定义，默认 `wiki-okf`）。
 
-**第 1 步 — 建空文件夹**
-
-在 Finder / 资源管理器里新建文件夹，例如：
+你打开 `OKF/` 作 workspace 时，Agent 应在里面创建 **`OKF/wiki-okf/`**，而不是在 `OKF/` 根下直接堆 `concepts/`、`raw/`。
 
 ```text
-~/Documents/wiki-okf/     ← 推荐默认名
-或 ~/Documents/OKF/        ← 你自定义的名字也行
+OKF/                       ← workspace（容器，名字随意）
+└── wiki-okf/               ← ★ 知识库目录（你要找的就是这个）
+    ├── BUNDLE.md
+    ├── index.md
+    ├── concepts/
+    ├── raw/
+    └── .agents/skills/llm-wiki/
 ```
 
-**第 2 步 — 用 Cursor 打开这个文件夹**
+只有当你 **直接打开** 名为 `wiki-okf` 的空文件夹时，知识库才在 workspace 根（没有多一层子目录）。
 
-菜单：文件 → 打开文件夹 → 选刚建的 `wiki-okf`（或 `OKF`）。
+### 3 步
 
-此时 workspace 里应该是**空的**，或只有你刚建的东西。**不要**打开 `llm-wiki-skill-okf` 工具项目。
-
-**第 3 步 — 发「第一次创建」提示词**
-
-复制下面「第一次创建提示词」整段发给 Agent。Agent 会先问名称和类型（你没说就用默认 `wiki-okf` + `research`），然后在**当前打开的文件夹里**生成结构。
-
-### 创建成功后，左侧应该长这样
-
-```text
-wiki-okf/              ← 这就是知识库目录（整个文件夹）
-├── BUNDLE.md          ← 说明「本文件夹即知识库根目录」
-├── index.md           ← 有 okf_version: "0.1"
-├── concepts/          ← 空，ingest 后才有 .md
-├── entities/
-├── summaries/
-├── raw/
-├── audit/
-└── .agents/skills/llm-wiki/
-```
-
-**没有**单独的 `wiki-okf/wiki-okf/` 嵌套。  
-**没有** `llm-wiki/`、`web/` 出现在知识库里。  
-若你看到 `concepts/`、`raw/`、`index.md` —— **已经建对了**，只是还没 ingest 所以概念文件夹是空的。
+1. 新建并打开一个空文件夹（如 `~/Documents/OKF`，名字随意）
+2. 复制下面「第一次创建提示词」发给 Agent
+3. 完成后在左侧点开 **`wiki-okf`** 子文件夹 — 那才是知识库
 
 ### 第一次创建提示词
 
 ```text
 请帮我第一次创建 llm-wiki OKF 知识库。
 
-规则：
-1. 先问我（若我还没说）：知识库文件夹名称、知识库类型（research/catalog/operations/general）。
-   - 名称未说 → 默认 wiki-okf（若当前 workspace 文件夹已有名字如 OKF，可沿用当前文件夹名）
-   - 类型未说 → 默认 research
-2. 当前 workspace 就是知识库根目录 BUNDLE_ROOT（独立文件夹，不是 llm-wiki-skill-okf 工具项目）。
-   若 workspace 里有 web/、audit-shared/ 等工具代码 → 停止，告诉我应新建并打开空文件夹。
-3. 从 https://github.com/kaerf15/llm-wiki-skill-okf 临时 clone，执行：
-   python3 <TEMP>/llm-wiki/scripts/scaffold.py "<BUNDLE_ROOT>" "<主题标题>" --type <KB_TYPE>
-   安装 skill 到 <BUNDLE_ROOT>/.agents/skills/llm-wiki/
-   按需部署/注册 Web viewer（端口 4875）
-4. 完成后必须明确告诉我：
-   - 知识库根目录的绝对路径
-   - 「左侧当前 workspace 就是知识库，concepts/raw 等是库内结构，不是还缺目录」
-   - 打开 BUNDLE.md 和 index.md 确认
+【BUNDLE_ROOT 规则 — 必须遵守】
+- KB_NAME = 我指定的文件夹名；未指定则问；仍无则默认 wiki-okf
+- WORKSPACE = 当前 Cursor 打开的文件夹
+- 若 basename(WORKSPACE) != KB_NAME：
+    BUNDLE_ROOT = WORKSPACE/KB_NAME   （mkdir 后 scaffold 到子文件夹）
+    禁止在 WORKSPACE 根直接创建 concepts/、raw/、index.md
+- 若 basename(WORKSPACE) == KB_NAME 且为空：
+    BUNDLE_ROOT = WORKSPACE
+
+【类型】未指定则问，仍无则 research
+
+【执行】
+1. 从 https://github.com/kaerf15/llm-wiki-skill-okf 临时 clone
+2. python3 <TEMP>/llm-wiki/scripts/scaffold.py "<BUNDLE_ROOT>" "<主题>" --type <KB_TYPE>
+3. 安装 skill 到 <BUNDLE_ROOT>/.agents/skills/llm-wiki/
+4. 按需注册 Web（4875）
+
+【完成后必须汇报】
+- 知识库目录绝对路径（必须是 …/wiki-okf/ 这类具名子文件夹，除非 workspace 本身就叫 wiki-okf）
+- 让我在左侧点开 KB_NAME 文件夹，里面应有 index.md、concepts/、raw/
 ```
 
-### 已有知识库时
+### 建错了怎么办
 
-若文件夹里已有 `index.md`（含 `okf_version`），不要重复 scaffold，直接用「一键部署提示词」更新 skill / 注册 Web 即可。
+若在 `OKF/` 根看到 `concepts/`、`index.md`（没有 `wiki-okf/` 子文件夹）→ **建错了**。删除 `OKF/` 下这些内容，重新跑上面提示词，或手动：
+
+```bash
+mkdir -p ~/OKF/wiki-okf
+python3 …/scaffold.py ~/OKF/wiki-okf "My Topic" --type research
+```
 
 ## 极简部署流程
 
@@ -169,66 +159,32 @@ git --version
 
 ## 一键部署提示词
 
-先用 Agent **打开空的知识库文件夹**（或即将创建的 `wiki-okf` 路径）作为 workspace，再复制下面整段提示词。
-
-若当前 workspace 是 `llm-wiki-skill-okf` **工具项目本身**，不要在本仓库内 scaffold — 先问用户知识库要建在哪，再让用户打开那个文件夹重试。
+打开**空的父文件夹**（如 `~/Documents/OKF`）作 workspace，复制下面提示词。**不要**用旧版「workspace 即 BUNDLE_ROOT」逻辑。
 
 ```text
 请在当前 workspace 部署 llm-wiki 知识库。
 
-请严格按下面要求执行：
-- 仅当用户明确要求创建/部署时才 scaffold；用户没要求不要建。
-- 创建前先确认（用户已给的直接用，缺的先问，仍缺则用默认）：
-  · 知识库文件夹名称 — 用户指定则用该名称；未指定则问；默认 wiki-okf
-  · 知识库类型 research/catalog/operations/general — 用户指定则按类型建目录；未指定则问；默认 research
-- 当前 workspace 就是 BUNDLE_ROOT（独立知识库文件夹，不是 llm-wiki-skill-okf 工具项目）。
-- 若 workspace 里已有 llm-wiki/、web/、audit-shared/，说明开错目录 — 停止并提示用户。
-- 不要把 web/、audit-shared/ 复制到 BUNDLE_ROOT。
-- 需要把 llm-wiki skill 安装到：<BUNDLE_ROOT>/.agents/skills/llm-wiki/
-- 从 GitHub 下载：https://github.com/kaerf15/llm-wiki-skill-okf
-- clone 只作临时安装源，部署完成后必须删除。
-- 运行组件在用户级 APP_ROOT（Web 是全局共享，多个 bundle 共用同一个 viewer）。
-- Web 端口：4875
-- 作者：lym
+【BUNDLE_ROOT — 必须遵守】
+- KB_NAME = 用户指定的知识库文件夹名；未指定则问；仍无则 wiki-okf
+- WORKSPACE = 当前 workspace 绝对路径
+- 若 basename(WORKSPACE) != KB_NAME：
+    BUNDLE_ROOT = WORKSPACE/KB_NAME
+    禁止在 WORKSPACE 根创建 concepts/、raw/、index.md
+- 若 basename(WORKSPACE) == KB_NAME：
+    BUNDLE_ROOT = WORKSPACE
+- 若 workspace 含 llm-wiki/、web/、audit-shared/（工具项目）→ 停止
 
-参数：
-- REPO_URL=https://github.com/kaerf15/llm-wiki-skill-okf
-- BUNDLE_ROOT=当前 workspace 根目录
-- APP_ROOT=用户级应用目录下的 llm-wiki
-- WIKIS_CONFIG=<APP_ROOT>/wikis.json
-- TEMP_CLONE=系统临时目录下的 llm-wiki-skill-okf clone
-- PORT=4875
-- AUTHOR=lym
-- KB_TYPE=research（或用户指定的类型）
+- KB_TYPE = 用户指定或问后默认 research
+- 不要把 web/、audit-shared/ 复制到 BUNDLE_ROOT
+- skill 安装到 <BUNDLE_ROOT>/.agents/skills/llm-wiki/
+- REPO_URL=https://github.com/kaerf15/llm-wiki-skill-okf（临时 clone，完成后删除）
+- Web 端口 4875，APP_ROOT 用户级 llm-wiki 目录
 
-部署原则（重要）：
-- Web viewer 是用户级全局服务，多个 bundle 共用；不要每次部署都重装 Web。
-- 若检测到 Web 已部署且可用，跳过 Web 迁移/构建/自启动，只做 bundle 侧工作。
-- 每个 BUNDLE_ROOT 仍需安装/更新 skill，并把路径注册进 wikis.json。
-
-目标：
-1. 检查前置依赖：python3、node 20+、npm、git。缺失则停止并说明。
-2. 确认 BUNDLE_ROOT 是真实目录；确定 APP_ROOT 与 WIKIS_CONFIG。
-3. clone REPO_URL 到 TEMP_CLONE（不要 clone 到 BUNDLE_ROOT）。
-4. 若 BUNDLE_ROOT 尚无 OKF 结构，运行：
-   python3 <TEMP_CLONE>/llm-wiki/scripts/scaffold.py "<BUNDLE_ROOT>" "My Knowledge Base" --type <KB_TYPE>
-5. 安装/更新 skill（每次部署都要做）：
-   - 创建 <BUNDLE_ROOT>/.agents/skills
-   - 复制 <TEMP_CLONE>/llm-wiki 到 <BUNDLE_ROOT>/.agents/skills/llm-wiki
-   - 若已存在则先删旧版再复制最新版
-6. 检测 Web 是否已部署：
-   - 若已部署：跳过 Web 安装，仅注册 BUNDLE_ROOT 到 wikis.json
-   - 若未部署：完整安装 Web 到 APP_ROOT
-7. 构建 audit-shared 与 web（仅 Web 未部署时）
-8. 注册当前 bundle 到 wikis.json
-9. 安装 MarkItDown（若尚未安装）
-10. 验证：
-    - http://127.0.0.1:4875 可访问
-    - /api/config 的 wikis 列表包含当前 BUNDLE_ROOT
-    - <BUNDLE_ROOT>/index.md 存在且含 okf_version: "0.1"
-    - <BUNDLE_ROOT>/.agents/skills/llm-wiki/SKILL.md 存在
-11. 验证通过后删除 TEMP_CLONE。
-12. 汇报：Web 是否跳过重装、Web 地址、BUNDLE_ROOT 绝对路径、KB 类型、skill 路径、是否已注册。
+执行：
+1. mkdir -p <BUNDLE_ROOT>
+2. python3 <TEMP>/llm-wiki/scripts/scaffold.py "<BUNDLE_ROOT>" "<主题>" --type <KB_TYPE>
+3. 安装 skill、注册 Web
+4. 汇报：知识库目录 <BUNDLE_ROOT> 绝对路径，请用户在左侧点开 KB_NAME 文件夹
 ```
 
 ## 手动快速开始

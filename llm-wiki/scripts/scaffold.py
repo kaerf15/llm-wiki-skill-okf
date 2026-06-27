@@ -13,8 +13,8 @@ Creates an Open Knowledge Format (OKF) v0.1 bundle at BUNDLE_ROOT.
 
 Agent rules (see references/create-guide.md):
 - Only scaffold when the user asks to create/deploy.
-- Folder name: use user's name if given; else ask; default wiki-okf.
-- KB type: use user's type if given; else ask; default research (--type).
+- BUNDLE_ROOT = WORKSPACE/KB_NAME subfolder unless workspace folder is already named KB_NAME.
+- Never scatter concepts/raw at workspace root when workspace name != KB_NAME.
 
 KB types:
   research   — concepts/, entities/, summaries/ (Karpathy-style, default)
@@ -231,20 +231,19 @@ okf_version: "{OKF_VERSION}"
 
     bundle_md = f"""# 知识库根目录
 
-> **本文件夹就是 OKF 知识库（Knowledge Bundle）**，不是 llm-wiki-skill-okf 工具项目。
+> **本文件夹（`{os.path.basename(root)}`）就是 OKF 知识库（BUNDLE_ROOT）。**
+
+父级 workspace 若另有名字（如 `OKF/`），知识库应在其下的 **`{os.path.basename(root)}/`** 子文件夹中，不应在父级根 scattered `concepts/`。
 
 | 路径 | 用途 |
 |------|------|
 | `index.md` | 知识库总索引 |
-| `concepts/` · `entities/` · `summaries/` | 概念页（ingest 后才有内容，现在为空正常） |
-| `raw/` | 放原始资料（论文、文章） |
+| `concepts/` · `entities/` · `summaries/` | 概念页（ingest 后才有内容） |
+| `raw/` | 原始资料 |
 | `audit/` | 人工反馈 |
-| `.agents/skills/llm-wiki/` | Agent skill（安装后出现） |
 
 - **类型**：{kb_type}（{profile["label"]}）
 - **OKF 版本**：{OKF_VERSION}
-
-工具代码（`web/`、`llm-wiki/` 源码）在别处，不要复制进本文件夹。
 """
     _write(root, "BUNDLE.md", bundle_md)
     print("✓ Created BUNDLE.md（说明：本文件夹即知识库根目录）")
@@ -259,15 +258,14 @@ okf_version: "{OKF_VERSION}"
     print(f"""
 ✅ 知识库已创建
 
-知识库根目录（BUNDLE_ROOT）就是这一层文件夹：
+知识库目录（BUNDLE_ROOT）：
   {root}/
 
-左侧看到的 concepts/、raw/、audit/ 等是知识库**内部**结构，不是还缺一个子目录。
-ingest 资料之前 concept 文件夹为空是正常的。
+请在文件树中打开名为「{os.path.basename(root)}」的文件夹；concepts/、raw/ 等在其内部。
+ingest 之前 concept 目录为空是正常的。
 
 Profile: {kb_type} ({profile["label"]})
 OKF version: {OKF_VERSION}
-说明文件: {root}/BUNDLE.md
 
 Next steps:
   1. Fill in AGENTS.md — define scope and conventions
