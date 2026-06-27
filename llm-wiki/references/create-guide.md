@@ -81,15 +81,21 @@ mkdir -p ~/Documents/my-ai-wiki/.agents/skills
 cp -R <skill-source>/llm-wiki ~/Documents/my-ai-wiki/.agents/skills/llm-wiki
 ```
 
-用户 workspace **已是**空的目标文件夹时，`BUNDLE_ROOT` 用 `.`：
+用户 workspace **已是**目标文件夹（如用户新建的 `OKF/` 或 `wiki-okf/`）时，`BUNDLE_ROOT` 用 `.` — **该文件夹就是知识库根目录**：
 
 ```bash
 python3 scripts/scaffold.py . "Sales Catalog" --type catalog
 ```
 
+创建后根目录会出现 `BUNDLE.md`，说明本层文件夹即知识库。
+
 ## 创建完成后
 
-空骨架（只有 `index.md`、空 concept 目录）是正常的，ingest 后才有内容。  
+空骨架（只有 `index.md`、空 concept 目录）是正常的，ingest 后才有内容。
+
+**你打开的文件夹本身就是知识库目录**，不是还缺一个 `wiki-okf/` 子文件夹。  
+确认标志：根目录有 `BUNDLE.md`、`index.md`（含 `okf_version: "0.1"`）、`concepts/`、`raw/`。
+
 完整 OKF 内部结构见 `references/okf-guide.md`。
 
 ## 常见错误

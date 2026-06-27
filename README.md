@@ -64,6 +64,74 @@ python3 llm-wiki/scripts/scaffold.py ~/Documents/sales-catalog "Sales Catalog" -
 
 详见 skill 内 `references/create-guide.md`。
 
+## 第一次创建（必读）
+
+**知识库 = 一个独立文件夹**，不是项目里的某个子模块。你 Cursor 左侧打开的那个文件夹，**本身就是知识库根目录**。
+
+### 正确流程（3 步）
+
+**第 1 步 — 建空文件夹**
+
+在 Finder / 资源管理器里新建文件夹，例如：
+
+```text
+~/Documents/wiki-okf/     ← 推荐默认名
+或 ~/Documents/OKF/        ← 你自定义的名字也行
+```
+
+**第 2 步 — 用 Cursor 打开这个文件夹**
+
+菜单：文件 → 打开文件夹 → 选刚建的 `wiki-okf`（或 `OKF`）。
+
+此时 workspace 里应该是**空的**，或只有你刚建的东西。**不要**打开 `llm-wiki-skill-okf` 工具项目。
+
+**第 3 步 — 发「第一次创建」提示词**
+
+复制下面「第一次创建提示词」整段发给 Agent。Agent 会先问名称和类型（你没说就用默认 `wiki-okf` + `research`），然后在**当前打开的文件夹里**生成结构。
+
+### 创建成功后，左侧应该长这样
+
+```text
+wiki-okf/              ← 这就是知识库目录（整个文件夹）
+├── BUNDLE.md          ← 说明「本文件夹即知识库根目录」
+├── index.md           ← 有 okf_version: "0.1"
+├── concepts/          ← 空，ingest 后才有 .md
+├── entities/
+├── summaries/
+├── raw/
+├── audit/
+└── .agents/skills/llm-wiki/
+```
+
+**没有**单独的 `wiki-okf/wiki-okf/` 嵌套。  
+**没有** `llm-wiki/`、`web/` 出现在知识库里。  
+若你看到 `concepts/`、`raw/`、`index.md` —— **已经建对了**，只是还没 ingest 所以概念文件夹是空的。
+
+### 第一次创建提示词
+
+```text
+请帮我第一次创建 llm-wiki OKF 知识库。
+
+规则：
+1. 先问我（若我还没说）：知识库文件夹名称、知识库类型（research/catalog/operations/general）。
+   - 名称未说 → 默认 wiki-okf（若当前 workspace 文件夹已有名字如 OKF，可沿用当前文件夹名）
+   - 类型未说 → 默认 research
+2. 当前 workspace 就是知识库根目录 BUNDLE_ROOT（独立文件夹，不是 llm-wiki-skill-okf 工具项目）。
+   若 workspace 里有 web/、audit-shared/ 等工具代码 → 停止，告诉我应新建并打开空文件夹。
+3. 从 https://github.com/kaerf15/llm-wiki-skill-okf 临时 clone，执行：
+   python3 <TEMP>/llm-wiki/scripts/scaffold.py "<BUNDLE_ROOT>" "<主题标题>" --type <KB_TYPE>
+   安装 skill 到 <BUNDLE_ROOT>/.agents/skills/llm-wiki/
+   按需部署/注册 Web viewer（端口 4875）
+4. 完成后必须明确告诉我：
+   - 知识库根目录的绝对路径
+   - 「左侧当前 workspace 就是知识库，concepts/raw 等是库内结构，不是还缺目录」
+   - 打开 BUNDLE.md 和 index.md 确认
+```
+
+### 已有知识库时
+
+若文件夹里已有 `index.md`（含 `okf_version`），不要重复 scaffold，直接用「一键部署提示词」更新 skill / 注册 Web 即可。
+
 ## 极简部署流程
 
 1. 安装前置依赖：Python 3、Node.js 20+、Git。
