@@ -2,7 +2,7 @@
 
 ## Web viewer — `web/`
 
-Local Node.js server: mermaid, KaTeX, backlinks, knowledge graph, audit feedback, **multi-wiki switching**. Supports OKF v0.1 bundles and legacy `wiki/` layout.
+Local Node.js server: mermaid, KaTeX, backlinks, knowledge graph, audit feedback, **multi-wiki switching**. OKF v0.1 bundles only.
 
 ### Multi-wiki config
 
@@ -31,7 +31,7 @@ npm start -- --wiki "/path/to/OKF"
 Open `http://127.0.0.1:4875`.
 
 Features:
-- **Navigation tree** from bundle root (OKF layout) or `wiki/` (legacy)
+- **Navigation tree** from knowledge root (`<KB_DIR>/`)
 - **Rendered pages** with internal SPA navigation
 - **Backlinks** — pages that link to the current page (right sidebar)
 - **Knowledge graph** — force-directed view of link structure (G key)
@@ -47,7 +47,7 @@ node web/scripts/deploy.mjs \
   --wiki ~/Documents/OKF
 ```
 
-- `--wiki` must be **PROJECT_ROOT** (contains `raw/`, `audit/`), not `wiki-okf/` subfolder.
+- `--wiki` must be **PROJECT_ROOT** (contains `raw/`, `audit/`), not the `wiki/` subfolder itself.
 - Script verifies `<KB_DIR>/index.md` exists before writing `wikis.json`.
 
 Then start:
@@ -77,14 +77,14 @@ Install this skill to the bundle root so any compatible Agent can discover it:
 
 Cursor users may optionally symlink to `.cursor/skills/llm-wiki/`.
 
-## Scaffolding OKF bundles
+## Scaffolding
 
 ```bash
 python3 scripts/scaffold.py ~/Documents/OKF "My Topic"
-python3 scripts/scaffold.py ~/wikis/sales-catalog "Sales Data" --type catalog
+python3 scripts/scaffold.py ~/Documents/OKF "My Topic" --kb-dir my-wiki
 ```
 
-Bundle root = workspace folder the user opened. Ask for KB type if not specified.
+Ask for KB_DIR (folder name) before scaffolding. Layout is fixed.
 
 ## MarkItDown importer
 

@@ -19,7 +19,7 @@ Checks:
   8. audit/ shape — valid AuditEntry frontmatter
   9. Audit targets — open audit target files exist
 
-Supports OKF v0.1 layout (concepts at bundle root) and legacy wiki/ layout.
+Supports OKF v0.1 layout: project root + `<KB_DIR>/` (default `wiki/`).
 
 Exit codes:
   0 — no issues found
@@ -36,11 +36,11 @@ from pathlib import Path
 from urllib.parse import unquote
 
 OKF_VERSION = "0.1"
-DEFAULT_KB_DIR = "wiki-okf"
+DEFAULT_KB_DIR = "wiki"
 BUNDLE_EXCLUDE_DIRS = {"audit", "raw", "log", "outputs", ".agents", ".git", "node_modules"}
 BUNDLE_META_FILES = {"AGENTS.md", "CLAUDE.md", "BUNDLE.md"}
 OKF_RESERVED = {"index.md", "log.md"}
-LEGACY_WIKI = "wiki"
+CONCEPT_PREFIXES = ("concepts/", "entities/", "summaries/", "raw/")
 
 MD_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
 LOG_FILENAME_RE = re.compile(r"^(\d{4})(\d{2})(\d{2})\.md$")
@@ -56,40 +56,26 @@ VALID_SOURCES = {"web-viewer", "manual"}
 
 
 def is_okf_bundle(knowledge_path: Path) -> bool:
-    index = knowledge_path / "index.md"
-    if index.exists():
-        text = index.read_text(encoding="utf-8")
-        if re.search(r"^okf_version:\s*", text, re.M):
-            return True
-    legacy = knowledge_path / LEGACY_WIKI
-    if legacy.exists() and legacy.is_dir():
-        return False
-    return index.exists()
+    return read_okf_version(knowledge_path) is not None
 
 
 def resolve_knowledge_root(project_path: Path) -> Path:
-    if is_okf_bundle(project_path) or _has_knowledge_index(project_path):
-        if read_okf_version(project_path) or not _looks_like_project_root(project_path):
-            return project_path
-    for name in (DEFAULT_KB_DIR, LEGACY_WIKI):
-        sub = project_path / name
-        if sub.is_dir() and _has_knowledge_index(sub):
-            return sub
+    if is_okf_bundle(project_path) and not _looks_like_project_root(project_path):
+        return project_path
+    default_sub = project_path / DEFAULT_KB_DIR
+    if is_okf_bundle(default_sub):
+        return default_sub
     try:
         for p in sorted(project_path.iterdir()):
             if not p.is_dir() or p.name.startswith("."):
                 continue
-            if p.name in BUNDLE_EXCLUDE_DIRS:
+            if p.name in BUNDLE_EXCLUDE_DIRS or p.name == DEFAULT_KB_DIR:
                 continue
-            if _has_knowledge_index(p):
+            if is_okf_bundle(p):
                 return p
     except OSError:
         pass
-    return project_path
-
-
-def _has_knowledge_index(path: Path) -> bool:
-    return (path / "index.md").is_file()
+    return default_sub if is_okf_bundle(default_sub) else project_path
 
 
 def read_okf_version(knowledge_path: Path) -> str | None:
@@ -172,11 +158,7 @@ def resolve_link_href(root_path: Path, from_rel: str, href: str) -> str | None:
 
     if candidate.startswith("/"):
         full = root_path / candidate.lstrip("/")
-    elif candidate.startswith("wiki/") or candidate.startswith("raw/"):
-        full = root_path / candidate
-    elif candidate.startswith(("concepts/", "entities/", "summaries/", "datasets/",
-                               "tables/", "metrics/", "playbooks/", "runbooks/",
-                               "references/", "topics/")):
+    elif candidate.startswith(CONCEPT_PREFIXES):
         full = root_path / candidate
     else:
         from_path = root_path / from_rel
@@ -252,8 +234,6 @@ def is_concept_link(rel: str, root_path: Path) -> bool:
         return False
     if rel.startswith("audit/") or rel.startswith("outputs/"):
         return False
-    if rel.startswith(f"{LEGACY_WIKI}/"):
-        return True
     return is_concept_document(rel) or rel.endswith("/index.md") or rel == "index.md"
 
 
@@ -285,44 +265,45 @@ def lint(root: str) -> int:
 
     pages = load_pages(knowledge_path)
     nested = knowledge_path != project_path
-    layout = f"OKF v0.1 ({knowledge_path.name}/)" if nested and okf else ("OKF v0.1" if okf else "legacy wiki/")
+    layout = f"OKF v0.1 ({knowledge_path.name}/)" if nested else "OKF v0.1"
     print(f"Project root: {project_path}")
     print(f"Knowledge root: {knowledge_path}")
     print(f"Bundle layout: {layout}")
+
+    if not okf:
+        print("🔴 index.md missing okf_version frontmatter", file=sys.stderr)
+        return 1
 
     issues = 0
     inbound: dict[str, list[str]] = defaultdict(list)
 
     # ── Pass 0: OKF conformance ─────────────────────────────────────────
-    if okf:
-        okf_issues: list[str] = []
-        index_text = index_path.read_text(encoding="utf-8") if index_path.exists() else ""
-        if not re.search(r'^okf_version:\s*["\']?' + OKF_VERSION, index_text, re.M):
-            okf_issues.append(f"   {index_path.relative_to(project_path)} — missing or wrong okf_version: \"{OKF_VERSION}\"")
+    okf_issues: list[str] = []
+    index_text = index_path.read_text(encoding="utf-8") if index_path.exists() else ""
+    if not re.search(r'^okf_version:\s*["\']?' + OKF_VERSION, index_text, re.M):
+        okf_issues.append(f"   {index_path.relative_to(project_path)} — missing or wrong okf_version: \"{OKF_VERSION}\"")
 
-        missing_type: list[Path] = []
-        for p in concept_files:
-            rel = p.relative_to(knowledge_path).as_posix()
-            if not is_concept_document(rel):
-                continue
-            fm = parse_frontmatter(p.read_text(encoding="utf-8"))
-            if not fm or not fm.get("type") or not str(fm["type"]).strip():
-                missing_type.append(p)
+    missing_type: list[Path] = []
+    for p in concept_files:
+        rel = p.relative_to(knowledge_path).as_posix()
+        if not is_concept_document(rel):
+            continue
+        fm = parse_frontmatter(p.read_text(encoding="utf-8"))
+        if not fm or not fm.get("type") or not str(fm["type"]).strip():
+            missing_type.append(p)
 
-        if missing_type:
-            print(f"\n🔴 OKF concepts missing required type: ({len(missing_type)})")
-            for p in missing_type:
-                print(f"   {p.relative_to(knowledge_path)}")
-            issues += len(missing_type)
-        elif okf_issues:
-            print(f"\n🟡 OKF metadata issues ({len(okf_issues)}):")
-            for s in okf_issues:
-                print(s)
-            issues += len(okf_issues)
-        else:
-            print("✅ OKF frontmatter conformance OK")
+    if missing_type:
+        print(f"\n🔴 OKF concepts missing required type: ({len(missing_type)})")
+        for p in missing_type:
+            print(f"   {p.relative_to(knowledge_path)}")
+        issues += len(missing_type)
+    elif okf_issues:
+        print(f"\n🟡 OKF metadata issues ({len(okf_issues)}):")
+        for s in okf_issues:
+            print(s)
+        issues += len(okf_issues)
     else:
-        print("ℹ️  Legacy layout — skipping OKF type check")
+        print("✅ OKF frontmatter conformance OK")
 
     # ── Pass 1: dead links ──────────────────────────────────────────────
     dead_links: list[tuple[str, str, str]] = []

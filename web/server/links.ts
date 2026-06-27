@@ -5,7 +5,6 @@ import {
   isConceptDocument,
   isReservedIndex,
   OKF_INDEX_PATH,
-  LEGACY_INDEX_PATH,
 } from "./bundle.js";
 
 /** Standard markdown link: [text](href) */
@@ -44,10 +43,11 @@ function decodeHrefPath(pathPart: string): string {
   }
 }
 
+const ROOT_REL_PREFIXES = ["concepts/", "entities/", "summaries/", "raw/"] as const;
+
 /**
  * Resolve a markdown link target to a bundle page path.
- * Supports OKF absolute links (/concepts/Foo.md), legacy wiki/ paths,
- * raw/ paths, and relative links from the source file.
+ * Supports OKF absolute links (/concepts/Foo.md), raw/ paths, and relative links.
  */
 export function resolveWikiLink(
   wikiRoot: string,
@@ -64,22 +64,8 @@ export function resolveWikiLink(
 
   let full: string;
   if (candidate.startsWith("/")) {
-    // OKF bundle-relative absolute link
     full = path.join(wikiRoot, candidate.slice(1));
-  } else if (
-    candidate.startsWith("wiki/") ||
-    candidate.startsWith("raw/") ||
-    candidate.startsWith("concepts/") ||
-    candidate.startsWith("entities/") ||
-    candidate.startsWith("summaries/") ||
-    candidate.startsWith("datasets/") ||
-    candidate.startsWith("tables/") ||
-    candidate.startsWith("metrics/") ||
-    candidate.startsWith("playbooks/") ||
-    candidate.startsWith("runbooks/") ||
-    candidate.startsWith("references/") ||
-    candidate.startsWith("topics/")
-  ) {
+  } else if (ROOT_REL_PREFIXES.some((p) => candidate.startsWith(p))) {
     full = path.join(wikiRoot, candidate);
   } else if (fromRelPath) {
     full = path.resolve(path.dirname(path.join(wikiRoot, fromRelPath)), candidate);
@@ -149,17 +135,16 @@ export function collectMdFiles(dir: string): string[] {
 }
 
 export const WIKI_INDEX_PATH = OKF_INDEX_PATH;
-export const LEGACY_WIKI_INDEX_PATH = LEGACY_INDEX_PATH;
 
 export function isWikiIndexPath(relPath: string): boolean {
   const n = relPath.replace(/\\/g, "/");
-  return n === OKF_INDEX_PATH || n === LEGACY_INDEX_PATH || n.endsWith("/index.md");
+  return n === OKF_INDEX_PATH || n.endsWith("/index.md");
 }
 
 /** Chrome label for nav, top bar, and graph. Root index is always "index". */
 export function wikiPageLabel(relFromRoot: string, text: string): string {
   const n = relFromRoot.replace(/\\/g, "/");
-  if (n === OKF_INDEX_PATH || n === LEGACY_INDEX_PATH) return "index";
+  if (n === OKF_INDEX_PATH) return "index";
   if (n.endsWith("/index.md")) return path.basename(path.dirname(n));
   const stem = path.basename(relFromRoot, ".md");
   return extractTitle(text) ?? stem;

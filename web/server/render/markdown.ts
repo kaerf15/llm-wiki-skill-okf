@@ -138,7 +138,7 @@ function stripFrontmatter(text: string): {
 }
 
 /**
- * Resolve a link target to a file under wikiRoot (OKF bundle or legacy wiki/).
+ * Resolve a link target to a file under the knowledge root.
  */
 export function findPage(wikiRoot: string, target: string): string | null {
   const tryPath = (rel: string): string | null => {

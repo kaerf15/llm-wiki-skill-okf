@@ -59,15 +59,29 @@ function run(cmd, args, cwd) {
 
 function validateWikiProject(projectRoot) {
   const project = path.resolve(projectRoot);
-  const DEFAULT_KB = "wiki-okf";
-  const LEGACY_WIKI = "wiki";
+  const DEFAULT_KB = "wiki";
   const EXCLUDE = new Set(["audit", "raw", "log", "outputs", ".agents", ".git", "node_modules"]);
 
-  function hasIndex(dir) {
-    return fs.existsSync(path.join(dir, "index.md"));
+  function readOkfVersion(kbDir) {
+    const indexPath = path.join(kbDir, "index.md");
+    if (!fs.existsSync(indexPath)) return null;
+    const m = /^---\n([\s\S]*?)\n---/.exec(fs.readFileSync(indexPath, "utf-8"));
+    if (!m) return null;
+    const line = /^okf_version:\s*(.+)$/m.exec(m[1]);
+    if (!line) return null;
+    let v = line[1].trim();
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+      v = v.slice(1, -1);
+    }
+    return v || null;
+  }
+
+  function isOkfKb(dir) {
+    return readOkfVersion(dir) !== null;
   }
 
   function looksLikeProject(dir) {
+    if (readOkfVersion(dir)) return false;
     const hasRaw = fs.existsSync(path.join(dir, "raw"));
     const hasAudit = fs.existsSync(path.join(dir, "audit"));
     const hasConcepts =
@@ -76,22 +90,20 @@ function validateWikiProject(projectRoot) {
   }
 
   function resolveKb(root) {
-    if (hasIndex(root) && !looksLikeProject(root)) return root;
-    if (fs.existsSync(path.join(root, "wiki/index.md"))) return root;
-    for (const name of [DEFAULT_KB, LEGACY_WIKI]) {
-      const sub = path.join(root, name);
-      if (hasIndex(sub)) return sub;
-    }
+    if (isOkfKb(root) && !looksLikeProject(root)) return root;
+    const defaultSub = path.join(root, DEFAULT_KB);
+    if (isOkfKb(defaultSub)) return defaultSub;
     try {
       for (const e of fs.readdirSync(root, { withFileTypes: true })) {
         if (!e.isDirectory() || e.name.startsWith(".") || EXCLUDE.has(e.name)) continue;
+        if (e.name === DEFAULT_KB) continue;
         const sub = path.join(root, e.name);
-        if (hasIndex(sub)) return sub;
+        if (isOkfKb(sub)) return sub;
       }
     } catch {
       /* ignore */
     }
-    return root;
+    return isOkfKb(defaultSub) ? defaultSub : root;
   }
 
   if (!fs.existsSync(project) || !fs.statSync(project).isDirectory()) {
@@ -104,6 +116,14 @@ function validateWikiProject(projectRoot) {
     return {
       valid: false,
       error: `no index.md — use PROJECT_ROOT (e.g. ${project}), expect ${DEFAULT_KB}/index.md inside`,
+      knowledgeRoot,
+    };
+  }
+
+  if (!readOkfVersion(knowledgeRoot)) {
+    return {
+      valid: false,
+      error: `index.md missing okf_version at ${indexPath}`,
       knowledgeRoot,
     };
   }
@@ -174,7 +194,7 @@ function parseArgs(argv) {
       console.log(`Usage:
   node scripts/deploy.mjs --app-root <dir> --wiki <PROJECT_ROOT>
 
-  --wiki must be the project root (with raw/, audit/), NOT the wiki-okf/ subfolder.
+  --wiki must be the project root (with raw/, audit/), NOT the wiki/ subfolder itself.
 `);
       process.exit(0);
     }

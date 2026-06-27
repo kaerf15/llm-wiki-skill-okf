@@ -7,9 +7,9 @@ description: >-
   corpus, lints for OKF health, and audits human feedback from the web viewer.
   Use when the user asks to (1) create/deploy/scaffold a new OKF knowledge base,
   (2) ingest/compile/query/lint/audit an existing bundle. Before creating: ALWAYS
-  ask for the knowledge folder name (KB_DIR; default wiki-okf if user confirms default)
-  and KB type if omitted (default research). Never scaffold with default KB_DIR without
-  asking first unless the user already specified the name in the same request.
+  ask for the knowledge folder name (KB_DIR; default wiki if user confirms default).
+  Fixed layout: concepts/, entities/, summaries/ inside KB_DIR.
+  Never scaffold with default KB_DIR without asking first unless user specified the name.
 ---
 
 # LLM Wiki — OKF Knowledge Base Pattern
@@ -21,7 +21,7 @@ description: >-
 
 Instead of RAG (re-retrieving raw docs on every query), the LLM **compiles** raw sources into a persistent, cross-linked **OKF bundle**. Every ingest, query, lint, and audit pass makes the bundle richer. Knowledge compounds — and the human stays in the loop via structured feedback.
 
-- **You** own: sourcing raw material, asking good questions, steering direction, choosing the KB type, filing feedback.
+- **You** own: sourcing raw material, asking good questions, steering direction, filing feedback.
 - **LLM** owns: all writing, cross-referencing, filing, bookkeeping, and acting on your feedback.
 
 The bundle is a living artifact with **five operations** — `compile`, `ingest`, `query`, `lint`, `audit`. Every session starts by reading `AGENTS.md` and `index.md`.
@@ -38,18 +38,19 @@ Read `references/create-guide.md` before every create. **Project directory ≠ k
 
 | 项 | 用户本轮已说 | 用户没说 → **必须先问** | 问完仍无答复 |
 |----|------------|------------------------|-------------|
-| **知识库文件夹名（KB_DIR / `--kb-dir`）** | 用用户给的名称 | 「知识库文件夹叫什么？默认 **wiki-okf**（替代原 wiki/），用默认请直接说“默认”。」 | **`wiki-okf`** |
-| **知识库类型（KB_TYPE / `--type`）** | 用对应类型 | 「什么类型？research / catalog / operations / general」 | **`research`** |
-| **主题标题** | 用用户标题 | 可从文件夹名推导，或简短问一句 | 从 KB_DIR 推导 |
+| **知识库文件夹名（KB_DIR）** | 用用户给的名称 | 「知识库文件夹叫什么？默认 **wiki**，用默认请说“默认”。」 | **`wiki`** |
+| **主题标题** | 用用户标题 | 从 workspace 名推导 | 从 KB_DIR 推导 |
 
-**禁止**在用户未指定、也未被问过的情况下，静默使用默认 `wiki-okf` 直接创建。
+**不要**问 KB 类型。目录固定：`concepts/`、`entities/`、`summaries/`。
+
+**禁止**未询问就静默用默认 `wiki` 创建。
 
 ### 解析路径（必遵 — read create-guide.md）
 
-**Project root = workspace。** AI 解析内容在 **`wiki-okf/`**（默认，替代 legacy `wiki/`），内部 OKF 格式。
+**Project root = workspace。** 知识库子文件夹默认 **`wiki/`**（名称可改）。
 
 ```
-KB_DIR = 用户指定或默认 wiki-okf
+KB_DIR = 用户指定或默认 wiki
 if basename(WORKSPACE) == KB_DIR:
   PROJECT_ROOT = KNOWLEDGE_ROOT = WORKSPACE
 else:
@@ -60,48 +61,38 @@ raw/, log/, audit/, .agents/ → PROJECT_ROOT
 index.md, concepts/, entities/, summaries/ → KNOWLEDGE_ROOT
 ```
 
-Example: workspace `OKF/` + KB_DIR `wiki-okf` → **`OKF/wiki-okf/index.md`** + **`OKF/raw/`**（同级）。
-
-### Types → directory layout
-
-| `--type` | When user says… | Concept dirs |
-|----------|-----------------|--------------|
-| `research` (**default**) | 研究、论文、通用 wiki | `concepts/`, `entities/`, `summaries/` |
-| `catalog` | 数据目录、表、指标 | `datasets/`, `tables/`, `metrics/` |
-| `operations` | 运维、SOP、runbook | `playbooks/`, `runbooks/`, `references/` |
-| `general` | 最小 starter | `topics/` |
+Example: workspace `OKF/` + KB_DIR `wiki` → **`OKF/wiki/index.md`** + **`OKF/raw/`**（同级）。
 
 ### Create workflow
 
 ```bash
-python3 scripts/scaffold.py <PROJECT_ROOT> "<Topic Title>" --type <type> --kb-dir wiki-okf
+python3 scripts/scaffold.py <PROJECT_ROOT> "<Topic Title>" --kb-dir wiki
 mkdir -p <PROJECT_ROOT>/.agents/skills
 cp -R <skill-source>/llm-wiki <PROJECT_ROOT>/.agents/skills/llm-wiki
 ```
 
 ```bash
-python3 scripts/scaffold.py ~/Documents/OKF "My Research Topic" --type research
-python3 scripts/scaffold.py ~/wikis/sales-catalog "Sales Data" --type catalog --kb-dir sales-catalog
+python3 scripts/scaffold.py ~/Documents/OKF "My Research Topic"
+python3 scripts/scaffold.py ~/Documents/OKF "My Topic" --kb-dir my-wiki
 ```
 
 Install skill to `<PROJECT_ROOT>/.agents/skills/llm-wiki/` only — see `references/create-guide.md`.
 
-## OKF directory layout
+## Directory layout
 
 ```
-<project-root>/           ← workspace (e.g. ~/OKF)
+<project-root>/           ← workspace
 ├── raw/ · log/ · audit/
 ├── AGENTS.md
 ├── .agents/skills/llm-wiki/
-└── wiki-okf/             ← KNOWLEDGE_ROOT (default; replaces legacy wiki/)
-    ├── index.md          ← okf_version: "0.1"
-    ├── log.md
+└── wiki/                 ← KNOWLEDGE_ROOT (default name; user may rename)
+    ├── index.md          ← okf_version, name, description
     ├── concepts/
     ├── entities/
     └── summaries/
 ```
 
-Folder names depend on `--type`. See `references/okf-guide.md` for full OKF rules.
+Fixed layout — no variants.
 
 `AGENTS.md` is the **schema file**. Read `references/schema-guide.md` and `references/okf-guide.md`. Read both at session start together with `index.md`.
 
@@ -136,7 +127,7 @@ Target **400–1200 words per concept page**. When a topic would blow past that:
 - Subdirectories MAY have their own `index.md` (OKF progressive disclosure).
 - Keep paths shallow. No deep nesting.
 
-On `compile`, flatten legacy `wiki/` layouts if migrating, merge duplicates, update links to OKF absolute form.
+On `compile`, merge duplicates and update links to OKF absolute form.
 
 ### 2. Mermaid for diagrams, KaTeX for formulas
 
@@ -179,7 +170,6 @@ Use bundle-relative absolute paths starting with `/`:
 Rules:
 - Prefer `/concepts/...` absolute paths (stable when files move within subdirs).
 - Include `.md`. URL-encode spaces (`%20`).
-- Legacy `wiki/...` links still resolve in the web viewer.
 - Link first mention of every entity or concept; at most twice per article.
 - External citations go under `# Citations` per OKF convention.
 
@@ -228,7 +218,7 @@ Process human feedback from `audit/`. See `references/audit-guide.md`.
 | Tool | Purpose |
 |------|---------|
 | **`web/`** | Local preview — mermaid, KaTeX, backlinks, graph, feedback → `audit/` |
-| `scripts/scaffold.py` | Bootstrap OKF bundle (`--type research\|catalog\|operations\|general`) |
+| `scripts/scaffold.py` | Bootstrap project (`--kb-dir wiki` by default) |
 | `scripts/lint_wiki.py` | OKF + graph health check |
 | `scripts/audit_review.py` | Group open/resolved audits by target file |
 | [qmd](https://github.com/tobi/qmd) | Optional local semantic search (>100 pages) |

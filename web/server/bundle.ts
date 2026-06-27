@@ -14,11 +14,9 @@ import {
 export {
   BUNDLE_EXCLUDE_DIRS,
   BUNDLE_META_FILES,
+  CONCEPT_DIRS,
   DEFAULT_BUNDLE_DIR,
   DEFAULT_KB_DIR,
-  KB_TYPES,
-  LEGACY_INDEX_PATH,
-  LEGACY_WIKI_DIR,
   OKF_INDEX_PATH,
   OKF_VERSION,
   defaultPagePath,
@@ -36,14 +34,6 @@ export function isExcludedRelPath(relPath: string): boolean {
   if (parts.some((p) => BUNDLE_EXCLUDE_DIRS.has(p))) return true;
   const base = parts[parts.length - 1] ?? "";
   return BUNDLE_META_FILES.has(base);
-}
-
-/** True when bundle declares OKF or uses OKF-native layout (no legacy wiki/ dir). */
-export function isOkfBundle(knowledgeRoot: string): boolean {
-  if (readOkfVersion(knowledgeRoot)) return true;
-  const legacyWiki = path.join(knowledgeRoot, "wiki");
-  if (fs.existsSync(legacyWiki) && fs.statSync(legacyWiki).isDirectory()) return false;
-  return fs.existsSync(path.join(knowledgeRoot, "index.md"));
 }
 
 /** Collect all navigable markdown files in the knowledge root. */

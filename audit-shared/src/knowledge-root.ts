@@ -1,16 +1,10 @@
 /**
  * Resolve llm-wiki project layout → OKF knowledge root.
- * Project root has raw/, audit/; knowledge lives in <KB_DIR>/ or at project root.
+ * Project root has raw/, audit/; knowledge lives in <KB_DIR>/ (default wiki/).
  */
 import fs from "node:fs";
 import path from "node:path";
-import {
-  BUNDLE_EXCLUDE_DIRS,
-  DEFAULT_KB_DIR,
-  LEGACY_INDEX_PATH,
-  LEGACY_WIKI_DIR,
-  OKF_INDEX_PATH,
-} from "./bundle.js";
+import { BUNDLE_EXCLUDE_DIRS, DEFAULT_KB_DIR, OKF_INDEX_PATH } from "./bundle.js";
 
 export interface IndexMeta {
   okfVersion?: string;
@@ -62,48 +56,49 @@ export function readOkfVersion(knowledgeRoot: string): string | null {
   return readIndexMeta(knowledgeRoot).okfVersion ?? null;
 }
 
+function isOkfKnowledgeRoot(dir: string): boolean {
+  return hasKnowledgeIndex(dir) && !!readOkfVersion(dir);
+}
+
+/** True when dir is a llm-wiki project root (raw/, audit/) rather than the KB folder. */
 function looksLikeProjectRoot(dir: string): boolean {
   if (readOkfVersion(dir)) return false;
   const hasRaw = fs.existsSync(path.join(dir, "raw"));
   const hasAudit = fs.existsSync(path.join(dir, "audit"));
   const hasConceptsAtRoot =
     fs.existsSync(path.join(dir, "concepts")) ||
-    fs.existsSync(path.join(dir, "entities")) ||
-    fs.existsSync(path.join(dir, "datasets"));
+    fs.existsSync(path.join(dir, "entities"));
   return hasRaw && hasAudit && !hasConceptsAtRoot;
 }
 
-/** Resolve OKF/legacy knowledge root under a project workspace. */
+/** Resolve OKF knowledge root under a project workspace. */
 export function resolveKnowledgeRoot(projectRoot: string): string {
   const root = path.resolve(projectRoot);
 
-  if (hasKnowledgeIndex(root) && (readOkfVersion(root) || !looksLikeProjectRoot(root))) {
+  if (isOkfKnowledgeRoot(root) && !looksLikeProjectRoot(root)) {
     return root;
   }
-  if (fs.existsSync(path.join(root, LEGACY_INDEX_PATH))) return root;
 
-  for (const name of [DEFAULT_KB_DIR, LEGACY_WIKI_DIR]) {
-    const sub = path.join(root, name);
-    if (hasKnowledgeIndex(sub)) return sub;
+  const defaultSub = path.join(root, DEFAULT_KB_DIR);
+  if (isOkfKnowledgeRoot(defaultSub)) {
+    return defaultSub;
   }
 
   try {
     for (const e of fs.readdirSync(root, { withFileTypes: true })) {
       if (!e.isDirectory() || e.name.startsWith(".")) continue;
-      if (BUNDLE_EXCLUDE_DIRS.has(e.name)) continue;
+      if (BUNDLE_EXCLUDE_DIRS.has(e.name) || e.name === DEFAULT_KB_DIR) continue;
       const sub = path.join(root, e.name);
-      if (hasKnowledgeIndex(sub)) return sub;
+      if (isOkfKnowledgeRoot(sub)) return sub;
     }
   } catch {
     /* unreadable */
   }
 
-  return root;
+  return isOkfKnowledgeRoot(defaultSub) ? defaultSub : root;
 }
 
-export function defaultPagePath(knowledgeRoot: string): string {
-  if (fs.existsSync(path.join(knowledgeRoot, OKF_INDEX_PATH))) return OKF_INDEX_PATH;
-  if (fs.existsSync(path.join(knowledgeRoot, LEGACY_INDEX_PATH))) return LEGACY_INDEX_PATH;
+export function defaultPagePath(_knowledgeRoot: string): string {
   return OKF_INDEX_PATH;
 }
 
@@ -126,16 +121,24 @@ export function validateWikiProject(projectRoot: string): WikiPathValidation {
   }
 
   if (!fs.existsSync(indexPath)) {
-    const hint =
-      knowledgeRoot === project
-        ? `expected ${OKF_INDEX_PATH} at project root or a KB subfolder (e.g. ${DEFAULT_KB_DIR}/index.md)`
-        : `expected ${path.relative(project, indexPath)} under project ${project}`;
+    const hint = `expected ${DEFAULT_KB_DIR}/${OKF_INDEX_PATH} under project ${project}`;
     return {
       projectRoot: project,
       knowledgeRoot,
       indexPath,
       valid: false,
       error: `no index.md found — ${hint}`,
+      meta,
+    };
+  }
+
+  if (!meta.okfVersion) {
+    return {
+      projectRoot: project,
+      knowledgeRoot,
+      indexPath,
+      valid: false,
+      error: `index.md missing okf_version frontmatter at ${indexPath}`,
       meta,
     };
   }

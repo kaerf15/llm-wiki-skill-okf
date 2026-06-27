@@ -36,21 +36,3 @@ test("OKF bundle uses frontmatter titles as graph node labels", () => {
   assert.equal(labelsByPath.get("concepts/Brand System/overview.md"), "Brand Strategy");
   assert.equal(labelsByPath.get("entities/Andrej Karpathy.md"), "Andrej Karpathy");
 });
-
-test("legacy wiki layout still builds graph", () => {
-  const wikiRoot = fs.mkdtempSync(path.join(os.tmpdir(), "llm-wiki-graph-"));
-  fs.mkdirSync(path.join(wikiRoot, "wiki/concepts"), { recursive: true });
-
-  fs.writeFileSync(
-    path.join(wikiRoot, "wiki/index.md"),
-    "---\ntitle: Index — Demo\n---\n# Index — Demo\n",
-  );
-  fs.writeFileSync(
-    path.join(wikiRoot, "wiki/concepts/Foo.md"),
-    "---\ntype: concept\ntitle: Foo\n---\n# Foo\n",
-  );
-
-  const graph = buildGraph(wikiRoot);
-  assert.equal(graph.nodes.length, 2);
-  assert.ok(graph.nodes.some((n) => n.path === "wiki/concepts/Foo.md"));
-});

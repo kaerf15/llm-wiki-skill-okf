@@ -10,13 +10,8 @@ test("root index always labels as index in chrome", () => {
   assert.equal(wikiPageLabel("index.md", text), "index");
 });
 
-test("legacy wiki index labels as index", () => {
-  const text = "---\ntitle: Index — Demo\n---\n# Index — Demo\n";
-  assert.equal(wikiPageLabel("wiki/index.md", text), "index");
-});
-
 test("resolves OKF absolute links", () => {
-  const wikiRoot = fs.mkdtempSync(path.join(os.tmpdir(), "llm-wiki-okf-links-"));
+  const wikiRoot = fs.mkdtempSync(path.join(os.tmpdir(), "llm-wiki-links-"));
   fs.mkdirSync(path.join(wikiRoot, "entities"), { recursive: true });
   fs.writeFileSync(path.join(wikiRoot, "entities/Andrej Karpathy.md"), "# Andrej Karpathy\n");
 
@@ -28,19 +23,16 @@ test("resolves OKF absolute links", () => {
   });
 });
 
-test("resolves URL-encoded spaces in legacy wiki links", () => {
-  const wikiRoot = fs.mkdtempSync(path.join(os.tmpdir(), "llm-wiki-links-"));
-  fs.mkdirSync(path.join(wikiRoot, "wiki/entities"), { recursive: true });
-  fs.writeFileSync(path.join(wikiRoot, "wiki/entities/Andrej Karpathy.md"), "# Andrej Karpathy\n");
+test("resolves relative concept links", () => {
+  const wikiRoot = fs.mkdtempSync(path.join(os.tmpdir(), "llm-wiki-rel-links-"));
+  fs.mkdirSync(path.join(wikiRoot, "concepts"), { recursive: true });
+  fs.writeFileSync(path.join(wikiRoot, "concepts/Foo.md"), "# Foo\n");
+  fs.writeFileSync(path.join(wikiRoot, "concepts/Bar.md"), "[Foo](./Foo.md)\n");
 
-  const resolved = resolveWikiLink(
-    wikiRoot,
-    "wiki/index.md",
-    "wiki/entities/Andrej%20Karpathy.md",
-  );
+  const resolved = resolveWikiLink(wikiRoot, "concepts/Bar.md", "./Foo.md");
 
   assert.deepEqual(resolved, {
-    path: "wiki/entities/Andrej Karpathy.md",
+    path: "concepts/Foo.md",
     exists: true,
   });
 });

@@ -6,13 +6,10 @@
 /** OKF spec version this project targets. */
 export const OKF_VERSION = "0.1";
 
-/** Default knowledge folder (replaces legacy `wiki/`). User may rename. */
-export const DEFAULT_KB_DIR = "wiki-okf";
+/** Default knowledge subfolder under project root. User may rename. */
+export const DEFAULT_KB_DIR = "wiki";
 
-/** Legacy Karpathy knowledge subfolder. */
-export const LEGACY_WIKI_DIR = "wiki";
-
-/** @deprecated Use DEFAULT_KB_DIR — kept for backward-compatible imports. */
+/** @deprecated Use DEFAULT_KB_DIR */
 export const DEFAULT_BUNDLE_DIR = DEFAULT_KB_DIR;
 
 /** Directories excluded from concept scanning (producer extensions). */
@@ -35,53 +32,5 @@ export const OKF_RESERVED_FILENAMES = new Set(["index.md", "log.md"]);
 /** Root index path for OKF bundles. */
 export const OKF_INDEX_PATH = "index.md";
 
-/** Legacy Karpathy layout index (backward compatible). */
-export const LEGACY_INDEX_PATH = "wiki/index.md";
-
-/** Knowledge-base type profiles for scaffolding. */
-export const KB_TYPES = {
-  research: {
-    label: "Research Wiki",
-    description: "Karpathy-style research: concepts, entities, summaries",
-    conceptDirs: ["concepts", "entities", "summaries"],
-    defaultTypes: {
-      concepts: "Concept",
-      entities: "Entity",
-      summaries: "Summary",
-    },
-  },
-  catalog: {
-    label: "Data Catalog",
-    description: "Data assets: datasets, tables, metrics (OKF catalog pattern)",
-    conceptDirs: ["datasets", "tables", "metrics"],
-    defaultTypes: {
-      datasets: "Dataset",
-      tables: "Table",
-      metrics: "Metric",
-    },
-  },
-  operations: {
-    label: "Operations",
-    description: "Runbooks, playbooks, and operational references",
-    conceptDirs: ["playbooks", "runbooks", "references"],
-    defaultTypes: {
-      playbooks: "Playbook",
-      runbooks: "Runbook",
-      references: "Reference",
-    },
-  },
-  general: {
-    label: "General",
-    description: "Minimal OKF bundle — add concept folders as needed",
-    conceptDirs: ["topics"],
-    defaultTypes: {
-      topics: "Topic",
-    },
-  },
-} as const;
-
-export type KbType = keyof typeof KB_TYPES;
-
-export function isKbType(value: string): value is KbType {
-  return value in KB_TYPES;
-}
+/** Concept directories under the knowledge root. */
+export const CONCEPT_DIRS = ["concepts", "entities", "summaries"] as const;

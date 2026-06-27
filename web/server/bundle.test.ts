@@ -10,17 +10,17 @@ import {
   validateWikiProject,
 } from "./bundle.js";
 
-test("resolveKnowledgeRoot finds wiki-okf subfolder", () => {
-  const project = fs.mkdtempSync(path.join(os.tmpdir(), "llm-wiki-nested-"));
+test("resolveKnowledgeRoot finds default wiki/ subfolder", () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "llm-wiki-wiki-"));
   fs.mkdirSync(path.join(project, "raw"), { recursive: true });
   fs.mkdirSync(path.join(project, "audit"), { recursive: true });
-  fs.mkdirSync(path.join(project, "wiki-okf", "concepts"), { recursive: true });
+  fs.mkdirSync(path.join(project, "wiki", "concepts"), { recursive: true });
   fs.writeFileSync(
-    path.join(project, "wiki-okf", "index.md"),
+    path.join(project, "wiki", "index.md"),
     `---
 okf_version: "0.1"
-name: wiki-okf
-description: Test nested OKF bundle
+name: wiki
+description: Default wiki folder
 ---
 
 # Index
@@ -28,35 +28,42 @@ description: Test nested OKF bundle
   );
 
   const kb = resolveKnowledgeRoot(project);
-  assert.equal(kb, path.join(project, "wiki-okf"));
-  assert.equal(defaultPagePath(kb), "index.md");
-  assert.equal(readIndexMeta(kb).name, "wiki-okf");
-  assert.equal(readIndexMeta(kb).description, "Test nested OKF bundle");
-});
-
-test("validateWikiProject accepts nested llm-wiki project", () => {
-  const project = fs.mkdtempSync(path.join(os.tmpdir(), "llm-wiki-validate-"));
-  fs.mkdirSync(path.join(project, "raw"), { recursive: true });
-  fs.mkdirSync(path.join(project, "audit"), { recursive: true });
-  fs.mkdirSync(path.join(project, "wiki-okf"), { recursive: true });
-  fs.writeFileSync(
-    path.join(project, "wiki-okf", "index.md"),
-    '---\nokf_version: "0.1"\nname: wiki-okf\n---\n\n# Index\n',
-  );
-  const v = validateWikiProject(project);
-  assert.equal(v.valid, true);
-  assert.equal(v.knowledgeRoot, path.join(project, "wiki-okf"));
+  assert.equal(kb, path.join(project, "wiki"));
+  assert.equal(readIndexMeta(kb).name, "wiki");
 });
 
 test("resolveKnowledgeRoot finds custom KB subfolder", () => {
   const project = fs.mkdtempSync(path.join(os.tmpdir(), "llm-wiki-custom-"));
   fs.mkdirSync(path.join(project, "raw"), { recursive: true });
   fs.mkdirSync(path.join(project, "audit"), { recursive: true });
-  fs.mkdirSync(path.join(project, "my-research"), { recursive: true });
+  fs.mkdirSync(path.join(project, "my-wiki"), { recursive: true });
   fs.writeFileSync(
-    path.join(project, "my-research", "index.md"),
-    '---\nokf_version: "0.1"\nname: my-research\n---\n\n# Index\n',
+    path.join(project, "my-wiki", "index.md"),
+    `---
+okf_version: "0.1"
+name: my-wiki
+description: Custom KB folder
+---
+
+# Index
+`,
   );
 
-  assert.equal(resolveKnowledgeRoot(project), path.join(project, "my-research"));
+  const kb = resolveKnowledgeRoot(project);
+  assert.equal(kb, path.join(project, "my-wiki"));
+  assert.equal(readIndexMeta(kb).name, "my-wiki");
+});
+
+test("validateWikiProject accepts nested llm-wiki project", () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "llm-wiki-validate-"));
+  fs.mkdirSync(path.join(project, "raw"), { recursive: true });
+  fs.mkdirSync(path.join(project, "audit"), { recursive: true });
+  fs.mkdirSync(path.join(project, "wiki"), { recursive: true });
+  fs.writeFileSync(
+    path.join(project, "wiki", "index.md"),
+    '---\nokf_version: "0.1"\nname: wiki\n---\n\n# Index\n',
+  );
+  const v = validateWikiProject(project);
+  assert.equal(v.valid, true);
+  assert.equal(v.knowledgeRoot, path.join(project, "wiki"));
 });

@@ -14,59 +14,19 @@ A bundle is OKF v0.1 conformant when:
 
 Soft guidance (lint warns but does not fail): dead links, missing `description`, filename ≠ `title`.
 
-## Bundle vs legacy layout
-
-| | OKF (this skill) | Legacy Karpathy |
-|--|------------------|-----------------|
-| Root index | `index.md` with `okf_version` | `wiki/index.md` |
-| Concepts | `concepts/Foo.md` | `wiki/concepts/Foo.md` |
-| Links | `/concepts/Foo.md` | `wiki/concepts/Foo.md` |
-| Log history | `log.md` + `log/YYYYMMDD.md` | `log/YYYYMMDD.md` only |
-| Required field | `type` | `title` + `type` |
-
-The web viewer and linter support **both** layouts for migration.
-
-## Knowledge-base types
-
-When scaffolding, pick a profile with `--type` or ask the user:
-
-### research (default)
-
-Karpathy-style research wiki.
+## Directory layout
 
 ```
-concepts/   → type: Concept
-entities/   → type: Entity
-summaries/  → type: Summary
+<project-root>/           ← workspace
+├── raw/ · log/ · audit/
+└── wiki/                 ← KNOWLEDGE_ROOT (default name; user may rename)
+    ├── index.md          ← okf_version, name, description
+    ├── concepts/         → type: Concept
+    ├── entities/         → type: Entity
+    └── summaries/        → type: Summary
 ```
 
-### catalog
-
-Data catalog pattern (BigQuery-style OKF examples).
-
-```
-datasets/  → type: Dataset
-tables/    → type: Table
-metrics/   → type: Metric
-```
-
-### operations
-
-Operational knowledge.
-
-```
-playbooks/    → type: Playbook
-runbooks/     → type: Runbook
-references/   → type: Reference
-```
-
-### general
-
-Minimal starter — extend folders as the domain grows.
-
-```
-topics/  → type: Topic
-```
+Only the knowledge folder name (`KB_DIR`, default `wiki`) is customizable.
 
 ## Frontmatter
 
@@ -81,26 +41,18 @@ timestamp: 2026-06-28T10:00:00Z  # Optional — ISO 8601 last-modified
 ---
 ```
 
-`type` values are not centrally registered. Pick values that describe the concept clearly. Consumers MUST tolerate unknown types.
-
 ## Links
 
 **Recommended** — OKF absolute (bundle-relative):
 
 ```markdown
-See [customers table](/tables/customers.md) for the join key.
+See [customers table](/concepts/customers.md) for the join key.
 ```
 
 **Also supported** — relative:
 
 ```markdown
 See [neighboring concept](./other.md).
-```
-
-**Legacy** (still resolves):
-
-```markdown
-[Old link](wiki/concepts/Foo.md)
 ```
 
 ## Index files
@@ -156,4 +108,4 @@ External sources at the bottom of concept bodies:
 
 ## Project layout
 
-Workspace = project root (`raw/`, `log/`, `audit/`). AI-compiled OKF content lives in **`<KB_DIR>/`** (default `wiki-okf`, replaces legacy `wiki/`). **Always ask the user for KB_DIR before scaffolding**; use default only after they confirm.
+Workspace = project root (`raw/`, `log/`, `audit/`). AI-compiled OKF content lives in **`<KB_DIR>/`** (default **`wiki/`**). **Always ask the user for KB_DIR before scaffolding**; use default only after they confirm.

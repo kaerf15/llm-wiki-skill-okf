@@ -12,12 +12,12 @@ function makeNestedProject(): string {
   const project = fs.mkdtempSync(path.join(os.tmpdir(), "llm-wiki-page-"));
   fs.mkdirSync(path.join(project, "raw"), { recursive: true });
   fs.mkdirSync(path.join(project, "audit"), { recursive: true });
-  fs.mkdirSync(path.join(project, "wiki-okf", "concepts"), { recursive: true });
+  fs.mkdirSync(path.join(project, "wiki", "concepts"), { recursive: true });
   fs.writeFileSync(
-    path.join(project, "wiki-okf", "index.md"),
+    path.join(project, "wiki", "index.md"),
     `---
 okf_version: "0.1"
-name: wiki-okf
+name: wiki
 description: Nested test bundle
 ---
 
@@ -27,7 +27,7 @@ description: Nested test bundle
   return project;
 }
 
-test("GET /api/page serves index.md from wiki-okf/ subfolder", async () => {
+test("GET /api/page serves index.md from wiki/ subfolder", async () => {
   const project = makeNestedProject();
   const cfg = buildServerConfig(
     [{ id: "okf", name: "OKF", path: project }],

@@ -4,15 +4,15 @@
 
 ## OKF bundle profile
 
-Document the KB type chosen at scaffold time:
+Document OKF version in `AGENTS.md`:
 
 ```markdown
 ## Bundle profile
-- **KB type**: research
 - **OKF version**: 0.1
+- **Knowledge folder**: wiki   ← KB_DIR; user may rename
 ```
 
-Types: `research` · `catalog` · `operations` · `general`
+Directory layout is fixed: `concepts/`, `entities/`, `summaries/` under KB_DIR.
 
 ## Naming conventions
 
