@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import type { WikiRegistry } from "../config.js";
 import { findBacklinks } from "../links.js";
-import { wikiOr400 } from "./helpers.js";
+import { wikiOr400, knowledgeRoot } from "./helpers.js";
 
 export function handleBacklinks(registry: WikiRegistry) {
   return (req: Request, res: Response) => {
@@ -14,6 +14,6 @@ export function handleBacklinks(registry: WikiRegistry) {
       return;
     }
     const target = rel.endsWith(".md") ? rel : `${rel}.md`;
-    res.json({ target, backlinks: findBacklinks(wiki.path, target) });
+    res.json({ target, backlinks: findBacklinks(knowledgeRoot(wiki), target) });
   };
 }

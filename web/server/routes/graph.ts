@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Request, Response } from "express";
 import type { WikiRegistry } from "../config.js";
-import { wikiOr400 } from "./helpers.js";
+import { wikiOr400, knowledgeRoot } from "./helpers.js";
 import { collectConceptFiles, isConceptDocument } from "../bundle.js";
 import {
   extractMarkdownLinks,
@@ -91,6 +91,6 @@ export function handleGraph(registry: WikiRegistry) {
   return (req: Request, res: Response) => {
     const wiki = wikiOr400(registry, req, res);
     if (!wiki) return;
-    res.json(buildGraph(wiki.path));
+    res.json(buildGraph(knowledgeRoot(wiki)));
   };
 }

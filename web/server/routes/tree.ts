@@ -3,7 +3,7 @@ import path from "node:path";
 import type { Request, Response } from "express";
 import type { WikiRegistry } from "../config.js";
 import { wikiPageLabel } from "../links.js";
-import { wikiOr400 } from "./helpers.js";
+import { wikiOr400, knowledgeRoot } from "./helpers.js";
 import { BUNDLE_EXCLUDE_DIRS, BUNDLE_META_FILES, OKF_INDEX_PATH } from "../bundle.js";
 
 export interface TreeNode {
@@ -63,6 +63,6 @@ export function handleTree(registry: WikiRegistry) {
   return (req: Request, res: Response) => {
     const wiki = wikiOr400(registry, req, res);
     if (!wiki) return;
-    res.json(buildTree(wiki.path));
+    res.json(buildTree(knowledgeRoot(wiki)));
   };
 }

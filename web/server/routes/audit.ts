@@ -11,7 +11,7 @@ import {
   type Severity,
 } from "audit-shared";
 import type { WikiRegistry } from "../config.js";
-import { wikiOr400 } from "./helpers.js";
+import { wikiOr400, knowledgeRoot, projectRoot } from "./helpers.js";
 
 const VALID_SEVERITIES: readonly Severity[] = ["info", "suggest", "warn", "error"];
 
@@ -20,13 +20,14 @@ export function handleAuditList(registry: WikiRegistry) {
     const wiki = wikiOr400(registry, req, res);
     if (!wiki) return;
 
+    const root = projectRoot(wiki);
     const target = req.query.target as string | undefined;
     const mode = (req.query.mode as string | undefined) ?? "open";
 
     const entries: AuditEntry[] = [];
     const dirs: string[] = [];
-    if (mode === "open" || mode === "all") dirs.push(path.join(wiki.path, "audit"));
-    if (mode === "resolved" || mode === "all") dirs.push(path.join(wiki.path, "audit/resolved"));
+    if (mode === "open" || mode === "all") dirs.push(path.join(root, "audit"));
+    if (mode === "resolved" || mode === "all") dirs.push(path.join(root, "audit/resolved"));
 
     for (const dir of dirs) {
       if (!fs.existsSync(dir)) continue;
@@ -95,7 +96,7 @@ export function handleAuditCreate(registry: WikiRegistry) {
         return;
       }
 
-      const targetFull = path.join(wiki.path, target);
+      const targetFull = path.join(kb, target);
       if (!fs.existsSync(targetFull) || !fs.statSync(targetFull).isFile()) {
         res.status(404).json({ error: "target file not found", target });
         return;
@@ -106,7 +107,7 @@ export function handleAuditCreate(registry: WikiRegistry) {
       const id = makeId();
       const slug = comment.trim().split(/\s+/).slice(0, 5).join(" ");
       const filename = filenameFor(id, slug);
-      const auditDir = path.join(wiki.path, "audit");
+      const auditDir = path.join(root, "audit");
       fs.mkdirSync(auditDir, { recursive: true });
       const outPath = path.join(auditDir, filename);
 
@@ -129,7 +130,7 @@ export function handleAuditCreate(registry: WikiRegistry) {
       res.json({
         id,
         filename,
-        path: path.relative(wiki.path, outPath).split(path.sep).join("/"),
+        path: path.relative(root, outPath).split(path.sep).join("/"),
         entry,
       });
     } catch (err) {
@@ -152,8 +153,9 @@ export function handleAuditResolve(registry: WikiRegistry) {
       }
       const { resolution } = req.body as { resolution?: string };
 
-      const openDir = path.join(wiki.path, "audit");
-      const resolvedDir = path.join(wiki.path, "audit/resolved");
+      const root = projectRoot(wiki);
+      const openDir = path.join(root, "audit");
+      const resolvedDir = path.join(root, "audit/resolved");
       fs.mkdirSync(resolvedDir, { recursive: true });
 
       const candidate = fs.readdirSync(openDir).find((f) => f.startsWith(id));

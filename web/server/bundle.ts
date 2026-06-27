@@ -3,7 +3,9 @@ import path from "node:path";
 import {
   BUNDLE_EXCLUDE_DIRS,
   BUNDLE_META_FILES,
+  DEFAULT_KB_DIR,
   LEGACY_INDEX_PATH,
+  LEGACY_WIKI_DIR,
   OKF_INDEX_PATH,
   OKF_RESERVED_FILENAMES,
   OKF_VERSION,
@@ -13,8 +15,10 @@ export {
   BUNDLE_EXCLUDE_DIRS,
   BUNDLE_META_FILES,
   DEFAULT_BUNDLE_DIR,
+  DEFAULT_KB_DIR,
   KB_TYPES,
   LEGACY_INDEX_PATH,
+  LEGACY_WIKI_DIR,
   OKF_INDEX_PATH,
   OKF_VERSION,
 } from "audit-shared";
@@ -28,8 +32,8 @@ export function isExcludedRelPath(relPath: string): boolean {
 }
 
 /** Read okf_version from root index.md frontmatter, if present. */
-export function readOkfVersion(wikiRoot: string): string | null {
-  const indexPath = path.join(wikiRoot, OKF_INDEX_PATH);
+export function readOkfVersion(knowledgeRoot: string): string | null {
+  const indexPath = path.join(knowledgeRoot, OKF_INDEX_PATH);
   if (!fs.existsSync(indexPath)) return null;
   const text = fs.readFileSync(indexPath, "utf-8");
   const m = /^---\n([\s\S]*?)\n---/.exec(text);
@@ -38,36 +42,51 @@ export function readOkfVersion(wikiRoot: string): string | null {
   return versionLine ? versionLine[1]!.trim() : null;
 }
 
-/** True when bundle declares OKF or uses OKF-native layout (no legacy wiki/ dir). */
-export function isOkfBundle(wikiRoot: string): boolean {
-  if (readOkfVersion(wikiRoot)) return true;
-  const legacyWiki = path.join(wikiRoot, "wiki");
-  if (fs.existsSync(legacyWiki) && fs.statSync(legacyWiki).isDirectory()) return false;
-  return fs.existsSync(path.join(wikiRoot, OKF_INDEX_PATH));
+/** Resolve OKF/legacy knowledge root under a project workspace. */
+export function resolveKnowledgeRoot(projectRoot: string): string {
+  const root = path.resolve(projectRoot);
+  if (readOkfVersion(root)) return root;
+  if (fs.existsSync(path.join(root, LEGACY_INDEX_PATH))) return root;
+
+  const okfDir = path.join(root, DEFAULT_KB_DIR);
+  if (fs.existsSync(path.join(okfDir, OKF_INDEX_PATH))) return okfDir;
+
+  const legacyDir = path.join(root, LEGACY_WIKI_DIR);
+  if (fs.existsSync(path.join(legacyDir, "index.md"))) return legacyDir;
+
+  return root;
 }
 
-/** Default landing page for a bundle. */
-export function defaultPagePath(wikiRoot: string): string {
-  if (fs.existsSync(path.join(wikiRoot, OKF_INDEX_PATH))) return OKF_INDEX_PATH;
-  if (fs.existsSync(path.join(wikiRoot, LEGACY_INDEX_PATH))) return LEGACY_INDEX_PATH;
+/** True when bundle declares OKF or uses OKF-native layout (no legacy wiki/ dir). */
+export function isOkfBundle(knowledgeRoot: string): boolean {
+  if (readOkfVersion(knowledgeRoot)) return true;
+  const legacyWiki = path.join(knowledgeRoot, LEGACY_WIKI_DIR);
+  if (fs.existsSync(legacyWiki) && fs.statSync(legacyWiki).isDirectory()) return false;
+  return fs.existsSync(path.join(knowledgeRoot, OKF_INDEX_PATH));
+}
+
+/** Default landing page for a knowledge root. */
+export function defaultPagePath(knowledgeRoot: string): string {
+  if (fs.existsSync(path.join(knowledgeRoot, OKF_INDEX_PATH))) return OKF_INDEX_PATH;
+  if (fs.existsSync(path.join(knowledgeRoot, LEGACY_INDEX_PATH))) return LEGACY_INDEX_PATH;
   return OKF_INDEX_PATH;
 }
 
-/** Collect all navigable markdown files in the bundle. */
-export function collectConceptFiles(wikiRoot: string): string[] {
+/** Collect all navigable markdown files in the knowledge root. */
+export function collectConceptFiles(knowledgeRoot: string): string[] {
   const out: string[] = [];
-  walkConcepts(wikiRoot, wikiRoot, out);
+  walkConcepts(knowledgeRoot, knowledgeRoot, out);
   return out;
 }
 
-function walkConcepts(wikiRoot: string, dir: string, out: string[]): void {
+function walkConcepts(knowledgeRoot: string, dir: string, out: string[]): void {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     if (e.name.startsWith(".")) continue;
     const full = path.join(dir, e.name);
-    const rel = path.relative(wikiRoot, full).split(path.sep).join("/");
+    const rel = path.relative(knowledgeRoot, full).split(path.sep).join("/");
     if (e.isDirectory()) {
       if (BUNDLE_EXCLUDE_DIRS.has(e.name)) continue;
-      walkConcepts(wikiRoot, full, out);
+      walkConcepts(knowledgeRoot, full, out);
     } else if (e.isFile() && e.name.endsWith(".md")) {
       if (BUNDLE_META_FILES.has(e.name)) continue;
       if (rel.startsWith("audit/") || rel.startsWith("raw/") || rel.startsWith("outputs/")) continue;

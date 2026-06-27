@@ -1,26 +1,23 @@
 #!/usr/bin/env python3
 """
-scaffold.py — Bootstrap a new OKF-conformant LLM Wiki bundle.
+scaffold.py — Bootstrap a new OKF-conformant LLM Wiki project.
 
 Usage:
-    python3 scaffold.py <bundle-root> "<Topic Title>" [--type research|catalog|operations|general]
+    python3 scaffold.py <workspace> "<Topic Title>" [--type research|catalog|operations|general] [--kb-dir wiki-okf]
 
 Example:
     python3 scaffold.py ~/Documents/OKF "AI Research"
     python3 scaffold.py ~/wikis/my-catalog "Sales Data" --type catalog
 
-Creates an Open Knowledge Format (OKF) v0.1 bundle at BUNDLE_ROOT.
+Layout (same as legacy llm-wiki, but wiki/ → wiki-okf/ with OKF inside):
 
-Agent rules (see references/create-guide.md):
-- Only scaffold when the user asks to create/deploy.
-- BUNDLE_ROOT = WORKSPACE (the folder the user opened).
-- Do not nest wiki/ or wiki-okf/ subfolders — OKF concepts live at bundle root.
+    <workspace>/              ← project root (raw/, log/, audit/, .agents/)
+    └── wiki-okf/             ← AI 解析内容（原 wiki/，可改名）
+        ├── index.md          ← okf_version: "0.1"
+        ├── concepts/
+        └── ...
 
-KB types:
-  research   — concepts/, entities/, summaries/ (Karpathy-style, default)
-  catalog    — datasets/, tables/, metrics/ (data catalog pattern)
-  operations — playbooks/, runbooks/, references/
-  general    — topics/ (minimal, extend as needed)
+If basename(workspace) == kb-dir, knowledge lives at workspace root (no nested subfolder).
 """
 
 from __future__ import annotations
@@ -31,8 +28,7 @@ import sys
 from datetime import date, datetime, timezone
 
 OKF_VERSION = "0.1"
-# Legacy Karpathy layout used a wiki/ subfolder; OKF uses bundle root directly.
-DEFAULT_BUNDLE_DIR = "OKF"
+DEFAULT_KB_DIR = "wiki-okf"
 
 KB_TYPES: dict[str, dict] = {
     "research": {
@@ -78,18 +74,31 @@ KB_TYPES: dict[str, dict] = {
 }
 
 
-def scaffold(root: str, title: str, kb_type: str = "research") -> None:
+def resolve_paths(workspace: str, kb_dir: str) -> tuple[str, str]:
+    """Return (project_root, knowledge_root)."""
+    project = os.path.abspath(workspace)
+    if os.path.basename(project) == kb_dir:
+        return project, project
+    knowledge = os.path.join(project, kb_dir)
+    return project, knowledge
+
+
+def scaffold(workspace: str, title: str, kb_type: str = "research", kb_dir: str = DEFAULT_KB_DIR) -> None:
     if kb_type not in KB_TYPES:
         raise ValueError(f"unknown --type {kb_type!r}; choose from: {', '.join(KB_TYPES)}")
 
     profile = KB_TYPES[kb_type]
+    project, knowledge = resolve_paths(workspace, kb_dir)
+    nested = project != knowledge
+    kb_label = kb_dir if nested else os.path.basename(knowledge)
+    index_ref = f"{kb_dir}/index.md" if nested else "index.md"
+
     today = date.today()
     today_iso = today.isoformat()
     today_compact = today.strftime("%Y%m%d")
     now_hm = datetime.now().strftime("%H:%M")
-    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    dirs = [
+    producer_dirs = [
         "raw/articles",
         "raw/papers",
         "raw/notes",
@@ -98,32 +107,35 @@ def scaffold(root: str, title: str, kb_type: str = "research") -> None:
         "log",
         "audit",
         "audit/resolved",
-        *profile["concept_dirs"],
     ]
+    for d in producer_dirs:
+        os.makedirs(os.path.join(project, d), exist_ok=True)
 
-    for d in dirs:
-        os.makedirs(os.path.join(root, d), exist_ok=True)
-    print(f"✓ Created OKF bundle tree under {root}/")
+    os.makedirs(knowledge, exist_ok=True)
+    for folder in profile["concept_dirs"]:
+        os.makedirs(os.path.join(knowledge, folder), exist_ok=True)
 
-    _write(root, "audit/.gitkeep", "")
-    _write(root, "audit/resolved/.gitkeep", "")
+    print(f"✓ Project root: {project}/")
+    print(f"✓ Knowledge folder: {knowledge}/ ({kb_label})")
+
+    _write(project, "audit/.gitkeep", "")
+    _write(project, "audit/resolved/.gitkeep", "")
 
     type_lines = "\n".join(
         f"- `{folder}/` → OKF type `{t}`"
         for folder, t in profile["default_types"].items()
     )
-    section_list = "\n".join(f"### {s}\n*(none)*\n" for s in ["Concepts", "Entities", "Summaries"] if kb_type == "research")
-    if kb_type != "research":
-        section_list = "\n".join(f"### {s}\n*(none)*\n" for s in profile["index_sections"])
+    section_list = "\n".join(f"### {s}\n*(none)*\n" for s in profile["index_sections"])
 
     agents_md = f"""# {title} Knowledge Base
 
-> Schema document — read at the start of every session together with `index.md`.
+> Schema document — read at the start of every session together with `{index_ref}`.
 > This bundle conforms to [Open Knowledge Format (OKF) v{OKF_VERSION}](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md).
 
 ## Bundle profile
 
 - **KB type**: `{kb_type}` — {profile["label"]}
+- **Knowledge folder**: `{kb_label}/` (AI 解析后的概念页；原 legacy 的 `wiki/` 目录)
 - **OKF version**: {OKF_VERSION}
 - **Description**: {profile["description"]}
 
@@ -138,7 +150,7 @@ What this bundle deliberately excludes:
 ## Operations
 
 This bundle follows the llm-wiki skill's five operations: `compile`, `ingest`, `query`, `lint`, `audit`.
-Every operation appends an entry to `log/YYYYMMDD.md` and may update root `log.md`.
+Every operation appends an entry to `log/YYYYMMDD.md` and may update `{index_ref.replace('index.md', 'log.md') if nested else 'log.md'}`.
 
 ## OKF conventions
 
@@ -146,14 +158,12 @@ Every operation appends an entry to `log/YYYYMMDD.md` and may update root `log.m
 - **Recommended frontmatter**: `title`, `description`, `tags`, `timestamp` (ISO 8601).
 - **Concept directories** (this profile):
 {type_lines}
-- **Links**: use OKF absolute bundle-relative paths, e.g. `[Foo](/concepts/Foo.md)`.
-- **Index**: root `index.md` declares `okf_version`; subdirectory `index.md` files have no frontmatter.
-- **Reserved filenames**: `index.md`, `log.md` — not concept documents.
+- **Links**: use OKF absolute paths, e.g. `[Foo](/concepts/Foo.md)`.
+- **Index**: `{index_ref}` declares `okf_version`; subdirectory `index.md` files have no frontmatter.
 
 ## Naming conventions
 
 - Concept filenames SHOULD equal `title:` when `title` is set.
-- Only root `index.md` uses the reserved name at bundle root; subdirectories MAY have their own `index.md`.
 - Large binaries → pointer at `raw/refs/<slug>.md` with `type: Reference` and `resource:` URI.
 
 ## Current articles
@@ -172,29 +182,28 @@ Sources to ingest:
 
 ## Audit backlog
 
-*(none — run `python3 scripts/audit_review.py <bundle-root> --open` to refresh)*
+*(none — run `python3 scripts/audit_review.py {project} --open` to refresh)*
 
 ## Notes for the LLM
 
 - Language: <en | zh | bilingual>
 - Tone: <neutral, academic, conversational, ...>
 - Depth: <survey-level | deep technical>
-- When creating a new bundle for a user, confirm KB type (`research`, `catalog`, `operations`, `general`) if not specified.
 """
-    _write(root, "AGENTS.md", agents_md)
+    _write(project, "AGENTS.md", agents_md)
     print("✓ Created AGENTS.md")
 
-    _write(root, "CLAUDE.md", "@AGENTS.md\n")
-    print("✓ Created CLAUDE.md compatibility pointer")
+    _write(project, "CLAUDE.md", "@AGENTS.md\n")
+    print("✓ Created CLAUDE.md")
 
     log_md = f"""# {today_iso}
 
-## [{now_hm}] scaffold | Initialized {title} OKF bundle ({kb_type})
-- Created OKF v{OKF_VERSION} directory tree
-- KB type: {kb_type} ({profile["label"]})
-- Created AGENTS.md, index.md, log.md
+## [{now_hm}] scaffold | Initialized {title} OKF project ({kb_type})
+- Project root: {project}
+- Knowledge folder: {kb_label}/
+- Created AGENTS.md, {index_ref}, log.md
 """
-    _write(root, f"log/{today_compact}.md", log_md)
+    _write(project, f"log/{today_compact}.md", log_md)
     print(f"✓ Created log/{today_compact}.md")
 
     okf_log = f"""# Bundle Update Log
@@ -202,13 +211,13 @@ Sources to ingest:
 ## {today_iso}
 * **Initialization**: Created OKF v{OKF_VERSION} bundle for [{title}](/index.md) (type: {kb_type}).
 """
-    _write(root, "log.md", okf_log)
+    _write(knowledge, "log.md", okf_log)
     print("✓ Created log.md (OKF update history)")
 
-    nav_links = " · ".join(f"[{s}](#{s.lower().replace(' ', '-').split('(')[0].strip()})" for s in profile["index_sections"])
-    index_sections_md = "\n\n".join(
-        f"## {s}\n\n*(none yet)*" for s in profile["index_sections"]
+    nav_links = " · ".join(
+        f"[{s}](#{s.lower().replace(' ', '-').split('(')[0].strip()})" for s in profile["index_sections"]
     )
+    index_sections_md = "\n\n".join(f"## {s}\n\n*(none yet)*" for s in profile["index_sections"])
 
     index_md = f"""---
 okf_version: "{OKF_VERSION}"
@@ -227,42 +236,44 @@ okf_version: "{OKF_VERSION}"
 
 - <First research question>
 """
-    _write(root, "index.md", index_md)
+    _write(knowledge, "index.md", index_md)
     print("✓ Created index.md (OKF root index with okf_version)")
 
-    bundle_md = f"""# 知识库根目录
-
-> **本文件夹（`{os.path.basename(root)}`）就是 OKF 知识库（BUNDLE_ROOT）。**
-
-旧版 Karpathy layout 把内容放在 `wiki/` 子目录；OKF 对齐后 `index.md`、`concepts/` 等直接在 bundle 根，**不要再套** `wiki/` 或 `wiki-okf/` 子文件夹。
+    if nested:
+        bundle_md = f"""# 项目结构
 
 | 路径 | 用途 |
 |------|------|
-| `index.md` | 知识库总索引（原 `wiki/index.md` 的角色） |
-| `concepts/` · `entities/` · `summaries/` | 概念页（ingest 后才有内容） |
+| `{kb_dir}/` | **AI 解析后的知识**（原 `wiki/` 目录，OKF 格式） |
+| `{kb_dir}/index.md` | 知识库总索引 |
+| `{kb_dir}/concepts/` 等 | 概念页（ingest 后才有内容） |
 | `raw/` | 原始资料 |
 | `audit/` | 人工反馈 |
+| `.agents/skills/llm-wiki/` | Agent skill |
 
 - **类型**：{kb_type}（{profile["label"]}）
 - **OKF 版本**：{OKF_VERSION}
 """
-    _write(root, "BUNDLE.md", bundle_md)
-    print("✓ Created BUNDLE.md（说明：本文件夹即知识库根目录）")
+        _write(project, "BUNDLE.md", bundle_md)
+        print("✓ Created BUNDLE.md")
 
     for folder in profile["concept_dirs"]:
         sub_index = f"""# {folder.replace('_', ' ').title()}
 
 *(none yet)*
 """
-        _write(root, f"{folder}/index.md", sub_index)
+        _write(knowledge, f"{folder}/index.md", sub_index)
 
     print(f"""
-✅ 知识库已创建
+✅ 知识库项目已创建
 
-知识库目录（BUNDLE_ROOT）：
-  {root}/
+项目根（workspace）：
+  {project}/
 
-左侧文件树应在本文件夹根直接看到 index.md、concepts/、raw/。
+AI 解析内容（OKF 知识目录）：
+  {knowledge}/
+
+左侧应看到 `{kb_label}/` 文件夹（内有 index.md、concepts/），以及同级的 raw/、audit/。
 ingest 之前 concept 目录为空是正常的。
 
 Profile: {kb_type} ({profile["label"]})
@@ -270,11 +281,10 @@ OKF version: {OKF_VERSION}
 
 Next steps:
   1. Fill in AGENTS.md — define scope and conventions
-  2. Add sources to raw/ (or: python3 scripts/import_source.py <file> {root})
+  2. Add sources to raw/ (or: python3 scripts/import_source.py <file> {project})
   3. Run ingest: tell your LLM agent "ingest raw/<file>.md"
-  4. Ask questions: "what does the bundle say about X?"
-  5. Run lint:  python3 scripts/lint_wiki.py {root}
-  6. Process feedback: python3 scripts/audit_review.py {root} --open
+  4. Run lint:  python3 scripts/lint_wiki.py {project}
+  5. Process feedback: python3 scripts/audit_review.py {project} --open
 """)
 
 
@@ -287,17 +297,22 @@ def _write(root: str, path: str, content: str) -> None:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("root", help="Bundle root directory (= workspace the user opened)")
+    parser.add_argument("workspace", help="Project workspace the user opened")
     parser.add_argument("title", help='Topic title, e.g. "AI Research"')
     parser.add_argument(
         "--type",
         choices=sorted(KB_TYPES.keys()),
         default="research",
-        help="Knowledge-base profile (default: research). Ask the user if unsure.",
+        help="Knowledge-base profile (default: research)",
+    )
+    parser.add_argument(
+        "--kb-dir",
+        default=DEFAULT_KB_DIR,
+        help=f"Knowledge subfolder name — replaces legacy wiki/ (default: {DEFAULT_KB_DIR})",
     )
     return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
-    scaffold(args.root, args.title, args.type)
+    scaffold(args.workspace, args.title, args.type, args.kb_dir)

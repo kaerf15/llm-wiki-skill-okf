@@ -4,16 +4,16 @@ import type { Request, Response } from "express";
 import type { WikiRegistry } from "../config.js";
 import { createRenderer } from "../render/markdown.js";
 import { wikiPageLabel } from "../links.js";
-import { wikiOr400 } from "./helpers.js";
+import { wikiOr400, knowledgeRoot, projectRoot } from "./helpers.js";
 import { defaultPagePath } from "../bundle.js";
 
 const renderers = new Map<string, ReturnType<typeof createRenderer>>();
 
-function getRenderer(wikiRoot: string) {
-  let r = renderers.get(wikiRoot);
+function getRenderer(kbRoot: string) {
+  let r = renderers.get(kbRoot);
   if (!r) {
-    r = createRenderer({ wikiRoot });
-    renderers.set(wikiRoot, r);
+    r = createRenderer({ wikiRoot: kbRoot });
+    renderers.set(kbRoot, r);
   }
   return r;
 }
@@ -23,14 +23,15 @@ export function handlePage(registry: WikiRegistry) {
     const wiki = wikiOr400(registry, req, res);
     if (!wiki) return;
 
+    const kb = knowledgeRoot(wiki);
     const relRaw = (req.query.path as string | undefined) ?? "";
-    const rel = safeRel(relRaw, wiki.path);
+    const rel = safeRel(relRaw, kb);
     if (!rel) {
       res.status(400).json({ error: "missing or invalid `path` query" });
       return;
     }
 
-    let full = path.join(wiki.path, rel);
+    let full = path.join(kb, rel);
     if (fs.existsSync(full) && fs.statSync(full).isDirectory()) {
       full = path.join(full, "index.md");
     }
@@ -42,7 +43,7 @@ export function handlePage(registry: WikiRegistry) {
       return;
     }
 
-    const relFromRoot = path.relative(wiki.path, full);
+    const relFromRoot = path.relative(kb, full);
     if (relFromRoot.startsWith("..") || path.isAbsolute(relFromRoot)) {
       res.status(403).json({ error: "path escapes wiki root" });
       return;
@@ -50,7 +51,7 @@ export function handlePage(registry: WikiRegistry) {
 
     const relPosix = relFromRoot.split(path.sep).join("/");
     const rawMarkdown = fs.readFileSync(full, "utf-8");
-    const rendered = getRenderer(wiki.path).render(rawMarkdown, relPosix, wiki.id);
+    const rendered = getRenderer(kb).render(rawMarkdown, relPosix, wiki.id);
     res.json({
       wikiId: wiki.id,
       path: relPosix,
@@ -67,13 +68,14 @@ export function handleRaw(registry: WikiRegistry) {
     const wiki = wikiOr400(registry, req, res);
     if (!wiki) return;
 
+    const kb = knowledgeRoot(wiki);
     const relRaw = (req.query.path as string | undefined) ?? "";
-    const rel = safeRel(relRaw, wiki.path);
+    const rel = safeRel(relRaw, kb);
     if (!rel) {
       res.status(400).send("bad path");
       return;
     }
-    const full = path.join(wiki.path, rel);
+    const full = path.join(kb, rel);
     if (!fs.existsSync(full) || !fs.statSync(full).isFile()) {
       res.status(404).send("not found");
       return;

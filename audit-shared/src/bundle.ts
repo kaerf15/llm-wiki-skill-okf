@@ -6,8 +6,14 @@
 /** OKF spec version this project targets. */
 export const OKF_VERSION = "0.1";
 
-/** Example workspace folder name (bundle root = folder user opens). */
-export const DEFAULT_BUNDLE_DIR = "OKF";
+/** Default knowledge folder (replaces legacy `wiki/`). User may rename. */
+export const DEFAULT_KB_DIR = "wiki-okf";
+
+/** Legacy Karpathy knowledge subfolder. */
+export const LEGACY_WIKI_DIR = "wiki";
+
+/** @deprecated Use DEFAULT_KB_DIR — kept for backward-compatible imports. */
+export const DEFAULT_BUNDLE_DIR = DEFAULT_KB_DIR;
 
 /** Directories excluded from concept scanning (producer extensions). */
 export const BUNDLE_EXCLUDE_DIRS = new Set([

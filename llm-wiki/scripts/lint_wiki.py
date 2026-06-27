@@ -36,8 +36,9 @@ from pathlib import Path
 from urllib.parse import unquote
 
 OKF_VERSION = "0.1"
+DEFAULT_KB_DIR = "wiki-okf"
 BUNDLE_EXCLUDE_DIRS = {"audit", "raw", "log", "outputs", ".agents", ".git", "node_modules"}
-BUNDLE_META_FILES = {"AGENTS.md", "CLAUDE.md"}
+BUNDLE_META_FILES = {"AGENTS.md", "CLAUDE.md", "BUNDLE.md"}
 OKF_RESERVED = {"index.md", "log.md"}
 LEGACY_WIKI = "wiki"
 
@@ -54,46 +55,45 @@ VALID_STATUSES = {"open", "resolved"}
 VALID_SOURCES = {"web-viewer", "manual"}
 
 
-def is_okf_bundle(root_path: Path) -> bool:
-    index = root_path / "index.md"
+def is_okf_bundle(knowledge_path: Path) -> bool:
+    index = knowledge_path / "index.md"
     if index.exists():
         text = index.read_text(encoding="utf-8")
         if re.search(r"^okf_version:\s*", text, re.M):
             return True
-    legacy = root_path / LEGACY_WIKI
+    legacy = knowledge_path / LEGACY_WIKI
     if legacy.exists() and legacy.is_dir():
         return False
     return index.exists()
 
 
-def concept_scan_root(root_path: Path) -> Path:
-    """Directory containing concept .md files to lint."""
-    if is_okf_bundle(root_path):
-        return root_path
-    legacy = root_path / LEGACY_WIKI
-    return legacy if legacy.exists() else root_path
+def resolve_knowledge_root(project_path: Path) -> Path:
+    if is_okf_bundle(project_path):
+        return project_path
+    for name in (DEFAULT_KB_DIR, LEGACY_WIKI):
+        sub = project_path / name
+        if sub.is_dir() and (is_okf_bundle(sub) or (name == LEGACY_WIKI and (sub / "index.md").exists())):
+            return sub
+    return project_path
 
 
-def collect_concept_files(root_path: Path) -> list[Path]:
-    """All navigable concept .md files in the bundle."""
+def collect_concept_files(knowledge_path: Path) -> list[Path]:
+    """All navigable concept .md files in the knowledge root."""
     out: list[Path] = []
 
     def walk(dir_path: Path) -> None:
         for p in sorted(dir_path.iterdir()):
             if p.name.startswith("."):
                 continue
-            rel_parts = p.relative_to(root_path).parts
-            if any(part in BUNDLE_EXCLUDE_DIRS for part in rel_parts):
-                continue
             if p.is_dir():
+                if p.name in BUNDLE_EXCLUDE_DIRS:
+                    continue
                 walk(p)
             elif p.suffix == ".md" and p.name not in BUNDLE_META_FILES:
-                rel = p.relative_to(root_path).as_posix()
-                if rel.startswith("audit/") or rel.startswith("raw/") or rel.startswith("outputs/"):
-                    continue
                 out.append(p)
 
-    walk(root_path)
+    if knowledge_path.is_dir():
+        walk(knowledge_path)
     return out
 
 
@@ -110,10 +110,10 @@ def is_concept_document(rel: str) -> bool:
     return base.endswith(".md")
 
 
-def load_pages(scan_root: Path, root_path: Path) -> dict[str, Path]:
+def load_pages(knowledge_path: Path) -> dict[str, Path]:
     pages: dict[str, Path] = {}
-    for p in collect_concept_files(root_path):
-        rel = p.relative_to(root_path).as_posix()
+    for p in collect_concept_files(knowledge_path):
+        rel = p.relative_to(knowledge_path).as_posix()
         pages[rel] = p
         pages[rel.removesuffix(".md")] = p
         pages[p.stem] = p
@@ -224,32 +224,37 @@ def is_concept_link(rel: str, root_path: Path) -> bool:
     return is_concept_document(rel) or rel.endswith("/index.md") or rel == "index.md"
 
 
-def should_skip_md_scan(root_path: Path, md_file: Path) -> bool:
+def should_skip_md_scan(knowledge_path: Path, md_file: Path) -> bool:
     """Skip producer extensions and meta files when scanning markdown for links."""
-    rel = md_file.relative_to(root_path).as_posix()
-    if any(part in BUNDLE_EXCLUDE_DIRS for part in md_file.relative_to(root_path).parts):
-        return True
     if md_file.name in BUNDLE_META_FILES:
         return True
     if "audit" in md_file.parts and md_file.parent.name in {"audit", "resolved"}:
+        return True
+    try:
+        md_file.relative_to(knowledge_path)
+    except ValueError:
         return True
     return False
 
 
 def lint(root: str) -> int:
-    root_path = Path(root)
-    log_path = root_path / "log"
-    audit_path = root_path / "audit"
-    okf = is_okf_bundle(root_path)
-    index_path = root_path / ("index.md" if okf else f"{LEGACY_WIKI}/index.md")
+    project_path = Path(root)
+    knowledge_path = resolve_knowledge_root(project_path)
+    log_path = project_path / "log"
+    audit_path = project_path / "audit"
+    okf = is_okf_bundle(knowledge_path)
+    index_path = knowledge_path / "index.md"
 
-    concept_files = collect_concept_files(root_path)
+    concept_files = collect_concept_files(knowledge_path)
     if not concept_files and not index_path.exists():
-        print(f"ERROR: no concept files or index found at {root_path}", file=sys.stderr)
+        print(f"ERROR: no concept files or index found at {knowledge_path}", file=sys.stderr)
         return 1
 
-    pages = load_pages(concept_scan_root(root_path), root_path)
-    layout = "OKF v0.1" if okf else "legacy wiki/"
+    pages = load_pages(knowledge_path)
+    nested = knowledge_path != project_path
+    layout = f"OKF v0.1 ({knowledge_path.name}/)" if nested and okf else ("OKF v0.1" if okf else "legacy wiki/")
+    print(f"Project root: {project_path}")
+    print(f"Knowledge root: {knowledge_path}")
     print(f"Bundle layout: {layout}")
 
     issues = 0
@@ -260,11 +265,11 @@ def lint(root: str) -> int:
         okf_issues: list[str] = []
         index_text = index_path.read_text(encoding="utf-8") if index_path.exists() else ""
         if not re.search(r'^okf_version:\s*["\']?' + OKF_VERSION, index_text, re.M):
-            okf_issues.append(f"   {index_path.relative_to(root_path)} — missing or wrong okf_version: \"{OKF_VERSION}\"")
+            okf_issues.append(f"   {index_path.relative_to(project_path)} — missing or wrong okf_version: \"{OKF_VERSION}\"")
 
         missing_type: list[Path] = []
         for p in concept_files:
-            rel = p.relative_to(root_path).as_posix()
+            rel = p.relative_to(knowledge_path).as_posix()
             if not is_concept_document(rel):
                 continue
             fm = parse_frontmatter(p.read_text(encoding="utf-8"))
@@ -274,7 +279,7 @@ def lint(root: str) -> int:
         if missing_type:
             print(f"\n🔴 OKF concepts missing required type: ({len(missing_type)})")
             for p in missing_type:
-                print(f"   {p.relative_to(root_path)}")
+                print(f"   {p.relative_to(knowledge_path)}")
             issues += len(missing_type)
         elif okf_issues:
             print(f"\n🟡 OKF metadata issues ({len(okf_issues)}):")
@@ -288,16 +293,16 @@ def lint(root: str) -> int:
 
     # ── Pass 1: dead links ──────────────────────────────────────────────
     dead_links: list[tuple[str, str, str]] = []
-    for md_file in root_path.rglob("*.md"):
-        if should_skip_md_scan(root_path, md_file):
+    for md_file in knowledge_path.rglob("*.md"):
+        if should_skip_md_scan(knowledge_path, md_file):
             continue
-        rel_from_root = md_file.relative_to(root_path).as_posix()
+        rel_from_root = md_file.relative_to(knowledge_path).as_posix()
         text = md_file.read_text(encoding="utf-8")
         for _text, href in extract_md_links(text):
-            resolved = resolve_link_href(root_path, rel_from_root, href)
-            if not resolved or not is_concept_link(resolved, root_path):
+            resolved = resolve_link_href(knowledge_path, rel_from_root, href)
+            if not resolved or not is_concept_link(resolved, knowledge_path):
                 continue
-            full = root_path / resolved
+            full = knowledge_path / resolved
             if full.exists() and full.is_file():
                 stem_key = resolved.removesuffix(".md")
                 inbound[stem_key].append(rel_from_root)
@@ -321,14 +326,14 @@ def lint(root: str) -> int:
     skip_orphan = {"index"}
     orphans = [
         p for p in concept_files
-        if is_concept_document(p.relative_to(root_path).as_posix())
+        if is_concept_document(p.relative_to(knowledge_path).as_posix())
         and p.stem not in inbound
         and p.stem not in skip_orphan
     ]
     if orphans:
         print(f"\n🟡 Orphan pages ({len(orphans)}) — no inbound links:")
         for p in orphans:
-            print(f"   {p.relative_to(root_path)}")
+            print(f"   {p.relative_to(knowledge_path)}")
         issues += len(orphans)
     else:
         print("✅ No orphan pages")
@@ -338,7 +343,7 @@ def lint(root: str) -> int:
         index_text = index_path.read_text(encoding="utf-8")
         not_in_index = []
         for p in concept_files:
-            rel = p.relative_to(root_path).as_posix()
+            rel = p.relative_to(knowledge_path).as_posix()
             if not is_concept_document(rel):
                 continue
             stem = p.stem
@@ -347,7 +352,7 @@ def lint(root: str) -> int:
         if not_in_index:
             print(f"\n🟡 Pages missing from index.md ({len(not_in_index)}):")
             for p in not_in_index:
-                print(f"   {p.relative_to(root_path)}")
+                print(f"   {p.relative_to(knowledge_path)}")
             issues += len(not_in_index)
         else:
             print("✅ All concepts listed in index.md")
@@ -358,7 +363,7 @@ def lint(root: str) -> int:
     title_mismatches: list[tuple[Path, str]] = []
     missing_titles: list[Path] = []
     for p in concept_files:
-        rel = p.relative_to(root_path).as_posix()
+        rel = p.relative_to(knowledge_path).as_posix()
         if not is_concept_document(rel):
             continue
         text = p.read_text(encoding="utf-8")
@@ -374,31 +379,31 @@ def lint(root: str) -> int:
     if missing_titles:
         print(f"\n🟡 Concept pages missing title ({len(missing_titles)}):")
         for p in missing_titles:
-            print(f"   {p.relative_to(root_path)}")
+            print(f"   {p.relative_to(knowledge_path)}")
         issues += len(missing_titles)
     if title_mismatches:
         print(f"\n🟡 Filename/title mismatches ({len(title_mismatches)}):")
         for p, title in title_mismatches:
-            print(f"   {p.relative_to(root_path)} — title: {title!r}, filename: {p.stem!r}")
+            print(f"   {p.relative_to(knowledge_path)} — title: {title!r}, filename: {p.stem!r}")
         issues += len(title_mismatches)
     if not missing_titles and not title_mismatches:
         print("✅ Filenames align with titles")
 
     # ── Pass 5: frequently linked but missing ───────────────────────────
     link_counts: dict[str, int] = defaultdict(int)
-    for md_file in root_path.rglob("*.md"):
-        if should_skip_md_scan(root_path, md_file):
+    for md_file in knowledge_path.rglob("*.md"):
+        if should_skip_md_scan(knowledge_path, md_file):
             continue
-        rel_from_root = md_file.relative_to(root_path).as_posix()
+        rel_from_root = md_file.relative_to(knowledge_path).as_posix()
         text = md_file.read_text(encoding="utf-8")
         for _text, href in extract_md_links(text):
-            resolved = resolve_link_href(root_path, rel_from_root, href)
-            if resolved and is_concept_link(resolved, root_path):
+            resolved = resolve_link_href(knowledge_path, rel_from_root, href)
+            if resolved and is_concept_link(resolved, knowledge_path):
                 link_counts[resolved] += 1
 
     missing_pages = [
         (link, count) for link, count in link_counts.items()
-        if count >= 3 and not (root_path / link).exists()
+        if count >= 3 and not (knowledge_path / link).exists()
     ]
     if missing_pages:
         print(f"\n🟡 Frequently linked but no page ({len(missing_pages)}):")
@@ -416,13 +421,13 @@ def lint(root: str) -> int:
                 continue
             m = LOG_FILENAME_RE.match(p.name)
             if not m:
-                log_issues.append(f"   {p.relative_to(root_path)} — filename doesn't match YYYYMMDD.md")
+                log_issues.append(f"   {p.relative_to(project_path)} — filename doesn't match YYYYMMDD.md")
                 continue
             y, mo, d = m.groups()
             iso = f"{y}-{mo}-{d}"
             first_line = p.read_text(encoding="utf-8").splitlines()[:1]
             if not first_line or first_line[0].strip() != f"# {iso}":
-                log_issues.append(f"   {p.relative_to(root_path)} — expected H1 '# {iso}'")
+                log_issues.append(f"   {p.relative_to(project_path)} — expected H1 '# {iso}'")
         if log_issues:
             print(f"\n🟡 log/ shape issues ({len(log_issues)}):")
             for s in log_issues:
@@ -441,7 +446,7 @@ def lint(root: str) -> int:
         for p in audit_files:
             text = p.read_text(encoding="utf-8")
             fm = parse_frontmatter(text)
-            rel = p.relative_to(root_path)
+            rel = p.relative_to(project_path)
             if fm is None:
                 audit_issues.append(f"   {rel} — missing YAML frontmatter")
                 continue
@@ -478,7 +483,7 @@ def lint(root: str) -> int:
     # ── Pass 8: audit targets exist ─────────────────────────────────────
     missing_targets: list[tuple[str, str]] = []
     for audit_id, target in audit_targets_to_check:
-        target_path = root_path / target
+        target_path = knowledge_path / target
         if not target_path.exists():
             missing_targets.append((audit_id, target))
     if missing_targets:
