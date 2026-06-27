@@ -1,5 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
+import {
+  collectConceptFiles,
+  isConceptDocument,
+  isReservedIndex,
+  OKF_INDEX_PATH,
+  LEGACY_INDEX_PATH,
+} from "./bundle.js";
 
 /** Standard markdown link: [text](href) */
 export const MD_LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g;
@@ -10,7 +17,7 @@ export interface ParsedLink {
 }
 
 export interface ResolvedWikiLink {
-  /** Path relative to wiki root, e.g. wiki/concepts/Foo.md */
+  /** Path relative to wiki root, e.g. concepts/Foo.md */
   path: string;
   exists: boolean;
 }
@@ -38,8 +45,9 @@ function decodeHrefPath(pathPart: string): string {
 }
 
 /**
- * Resolve a markdown link target to a wiki page path.
- * Supports paths relative to wiki root (wiki/...) or relative to the source file.
+ * Resolve a markdown link target to a bundle page path.
+ * Supports OKF absolute links (/concepts/Foo.md), legacy wiki/ paths,
+ * raw/ paths, and relative links from the source file.
  */
 export function resolveWikiLink(
   wikiRoot: string,
@@ -55,7 +63,23 @@ export function resolveWikiLink(
   if (!candidate.endsWith(".md")) candidate += ".md";
 
   let full: string;
-  if (candidate.startsWith("wiki/") || candidate.startsWith("raw/")) {
+  if (candidate.startsWith("/")) {
+    // OKF bundle-relative absolute link
+    full = path.join(wikiRoot, candidate.slice(1));
+  } else if (
+    candidate.startsWith("wiki/") ||
+    candidate.startsWith("raw/") ||
+    candidate.startsWith("concepts/") ||
+    candidate.startsWith("entities/") ||
+    candidate.startsWith("summaries/") ||
+    candidate.startsWith("datasets/") ||
+    candidate.startsWith("tables/") ||
+    candidate.startsWith("metrics/") ||
+    candidate.startsWith("playbooks/") ||
+    candidate.startsWith("runbooks/") ||
+    candidate.startsWith("references/") ||
+    candidate.startsWith("topics/")
+  ) {
     full = path.join(wikiRoot, candidate);
   } else if (fromRelPath) {
     full = path.resolve(path.dirname(path.join(wikiRoot, fromRelPath)), candidate);
@@ -87,14 +111,11 @@ export interface BacklinkEntry {
 }
 
 export function findBacklinks(wikiRoot: string, targetPath: string): BacklinkEntry[] {
-  const wikiDir = path.join(wikiRoot, "wiki");
-  if (!fs.existsSync(wikiDir)) return [];
-
   const normalizedTarget = targetPath.replace(/\\/g, "/");
   const targetStem = normalizedTarget.replace(/\.md$/, "");
   const out: BacklinkEntry[] = [];
 
-  for (const file of collectMdFiles(wikiDir)) {
+  for (const file of collectConceptFiles(wikiRoot)) {
     const relFromRoot = path.relative(wikiRoot, file).split(path.sep).join("/");
     if (relFromRoot === normalizedTarget) continue;
 
@@ -127,15 +148,19 @@ export function collectMdFiles(dir: string): string[] {
   return out;
 }
 
-export const WIKI_INDEX_PATH = "wiki/index.md";
+export const WIKI_INDEX_PATH = OKF_INDEX_PATH;
+export const LEGACY_WIKI_INDEX_PATH = LEGACY_INDEX_PATH;
 
 export function isWikiIndexPath(relPath: string): boolean {
-  return relPath.replace(/\\/g, "/") === WIKI_INDEX_PATH;
+  const n = relPath.replace(/\\/g, "/");
+  return n === OKF_INDEX_PATH || n === LEGACY_INDEX_PATH || n.endsWith("/index.md");
 }
 
-/** Chrome label for nav, top bar, and graph. wiki/index.md is always "index". */
+/** Chrome label for nav, top bar, and graph. Root index is always "index". */
 export function wikiPageLabel(relFromRoot: string, text: string): string {
-  if (isWikiIndexPath(relFromRoot)) return "index";
+  const n = relFromRoot.replace(/\\/g, "/");
+  if (n === OKF_INDEX_PATH || n === LEGACY_INDEX_PATH) return "index";
+  if (n.endsWith("/index.md")) return path.basename(path.dirname(n));
   const stem = path.basename(relFromRoot, ".md");
   return extractTitle(text) ?? stem;
 }
@@ -149,3 +174,5 @@ export function extractTitle(text: string): string | null {
   const h1 = /^#\s+(.+?)\s*$/m.exec(text);
   return h1 ? h1[1]! : null;
 }
+
+export { isConceptDocument, isReservedIndex };

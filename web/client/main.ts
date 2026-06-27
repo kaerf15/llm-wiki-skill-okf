@@ -17,6 +17,7 @@ interface WikiInfo {
   id: string;
   name: string;
   path: string;
+  defaultPage?: string;
 }
 
 interface AppConfig {
@@ -27,11 +28,17 @@ interface AppConfig {
 
 const state = {
   currentWikiId: "" as string,
-  currentPath: "wiki/index.md" as string,
+  currentPath: "index.md" as string,
   rawMarkdown: "" as string,
   author: "lym" as string,
   graphTeardown: null as (() => void) | null,
+  wikis: [] as WikiInfo[],
 };
+
+function defaultPageForWiki(wikiId: string): string {
+  const w = state.wikis.find((x) => x.id === wikiId);
+  return w?.defaultPage ?? "index.md";
+}
 
 function apiQuery(extra?: Record<string, string>): string {
   const p = new URLSearchParams({ wiki: state.currentWikiId, ...extra });
@@ -101,6 +108,7 @@ async function main() {
   try {
     cfg = await fetch("/api/config").then((r) => r.json());
     if (cfg.author) state.author = cfg.author;
+    state.wikis = cfg.wikis;
   } catch {
     document.getElementById("page-content")!.innerHTML =
       '<p class="loading">Failed to load server config.</p>';
@@ -119,19 +127,19 @@ async function main() {
   wikiSelect.value = state.currentWikiId;
 
   wikiSelect.addEventListener("change", () => {
-    void switchWiki(wikiSelect.value, "wiki/index.md");
+    void switchWiki(wikiSelect.value, defaultPageForWiki(wikiSelect.value));
   });
 
   await loadTree();
 
-  const initialPage = params.get("page") ?? "wiki/index.md";
+  const initialPage = params.get("page") ?? defaultPageForWiki(state.currentWikiId);
   await loadPage(initialPage);
 
   window.addEventListener("popstate", (e) => {
     const st = e.state as { wiki?: string; page?: string } | null;
     const p = new URL(window.location.href).searchParams;
     const wiki = st?.wiki ?? p.get("wiki") ?? state.currentWikiId;
-    const page = st?.page ?? p.get("page") ?? "wiki/index.md";
+    const page = st?.page ?? p.get("page") ?? defaultPageForWiki(wiki);
     if (wiki !== state.currentWikiId) {
       state.currentWikiId = wiki;
       wikiSelect.value = wiki;

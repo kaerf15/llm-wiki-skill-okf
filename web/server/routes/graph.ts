@@ -3,8 +3,8 @@ import path from "node:path";
 import type { Request, Response } from "express";
 import type { WikiRegistry } from "../config.js";
 import { wikiOr400 } from "./helpers.js";
+import { collectConceptFiles, isConceptDocument } from "../bundle.js";
 import {
-  collectMdFiles,
   extractMarkdownLinks,
   wikiPageLabel,
   resolveWikiLinkTarget,
@@ -29,25 +29,27 @@ export interface GraphData {
   edges: GraphEdge[];
 }
 
-export function buildGraph(wikiRoot: string): GraphData {
-  const wikiDir = path.join(wikiRoot, "wiki");
-  if (!fs.existsSync(wikiDir)) return { nodes: [], edges: [] };
+function isLinkableConceptPath(relPath: string): boolean {
+  return isConceptDocument(relPath) || relPath.endsWith("/index.md") || relPath === "index.md";
+}
 
-  const files = collectMdFiles(wikiDir);
+export function buildGraph(wikiRoot: string): GraphData {
+  const files = collectConceptFiles(wikiRoot);
   const nodes: Map<string, GraphNode> = new Map();
 
   for (const f of files) {
-    const relFromWiki = path.relative(wikiDir, f).split(path.sep).join("/");
-    const id = `wiki/${relFromWiki}`;
-    const parts = relFromWiki.split("/");
-    const group = parts.length > 1 ? parts[0]! : "other";
-    const text = fs.readFileSync(f, "utf-8");
-    const label = wikiPageLabel(id, text);
+    const relFromRoot = path.relative(wikiRoot, f).split(path.sep).join("/");
+    if (!isLinkableConceptPath(relFromRoot)) continue;
 
-    nodes.set(id, {
-      id,
+    const parts = relFromRoot.split("/");
+    const group = parts.length > 1 ? parts[0]! : "root";
+    const text = fs.readFileSync(f, "utf-8");
+    const label = wikiPageLabel(relFromRoot, text);
+
+    nodes.set(relFromRoot, {
+      id: relFromRoot,
       label,
-      path: id,
+      path: relFromRoot,
       group,
       degree: 0,
       title: label,
@@ -59,13 +61,14 @@ export function buildGraph(wikiRoot: string): GraphData {
 
   for (const f of files) {
     const relFromRoot = path.relative(wikiRoot, f).split(path.sep).join("/");
+    if (!isLinkableConceptPath(relFromRoot)) continue;
     const srcId = relFromRoot.replace(/\\/g, "/");
     const text = fs.readFileSync(f, "utf-8");
 
     for (const link of extractMarkdownLinks(text)) {
       if (/^(https?:|mailto:|#)/i.test(link.href)) continue;
       const tgtId = resolveWikiLinkTarget(wikiRoot, relFromRoot, link.href);
-      if (!tgtId || !tgtId.startsWith("wiki/") || tgtId === srcId) continue;
+      if (!tgtId || tgtId === srcId) continue;
       if (!nodes.has(tgtId)) continue;
 
       const key = `${srcId}→${tgtId}`;

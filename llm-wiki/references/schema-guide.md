@@ -1,32 +1,43 @@
 # AGENTS.md Schema Guide
 
-`AGENTS.md` is the **schema document** for a wiki topic. Every session should start by reading it together with `wiki/index.md`.
+`AGENTS.md` is the **schema document** for an OKF bundle. Every session should start by reading it together with `index.md`.
+
+## OKF bundle profile
+
+Document the KB type chosen at scaffold time:
+
+```markdown
+## Bundle profile
+- **KB type**: research
+- **OKF version**: 0.1
+```
+
+Types: `research` · `catalog` · `operations` · `general`
 
 ## Naming conventions
 
-### Pages
-- **All wiki pages** (except `wiki/index.md`): the `.md` filename must equal `title:` in frontmatter.
-- **Concept pages** (`wiki/concepts/`): hub at `wiki/concepts/<title>.md`; optional `wiki/concepts/<topic>/<aspect-title>.md`.
-- **Entity pages** (`wiki/entities/`): `wiki/entities/<title>.md`.
-- **Summary pages** (`wiki/summaries/`): `wiki/summaries/<title>.md` — not kebab-case slugs.
-- No subfolder `index.md` — only `wiki/index.md` exists.
+### Concept pages
+- Concept filenames SHOULD equal `title:` when `title` is set.
+- **Concept pages** (`concepts/`): hub at `concepts/<title>.md`; optional `concepts/<topic>/<aspect>.md`.
+- **Entity pages** (`entities/`): `entities/<title>.md`.
+- **Summary pages** (`summaries/`): `summaries/<title>.md`.
+- Subdirectories MAY have `index.md` for progressive disclosure (OKF §6).
 
 ### Links
-Use standard Markdown links with paths relative to the wiki root:
+Use OKF absolute bundle-relative paths:
 
 ```markdown
-[Market Making Strategy](wiki/concepts/Market%20Making%20Strategy.md)
-[Foo](wiki/concepts/Foo.md)
-[Karpathy LLM Wiki Gist](wiki/summaries/Karpathy%20LLM%20Wiki%20Gist.md)
+[Market Making Strategy](/concepts/Market%20Making%20Strategy.md)
+[Foo](/concepts/Foo.md)
+[Karpathy LLM Wiki Gist](/summaries/Karpathy%20LLM%20Wiki%20Gist.md)
 ```
 
-- Include `.md` in paths.
-- URL-encode spaces.
+- Include `.md`. URL-encode spaces.
 - Link first mention; at most twice per article.
 
-### Frontmatter
+### Frontmatter (OKF required)
 
-Every wiki page has YAML frontmatter: `title`, `type`, `created`, `updated`, `sources`, `tags`.
+Every concept document MUST have `type:` (non-empty). Recommended: `title`, `description`, `tags`, `timestamp`.
 
 ### Diagrams and formulas
 - Diagrams: **mermaid** only.
@@ -36,19 +47,19 @@ Every wiki page has YAML frontmatter: `title`, `type`, `created`, `updated`, `so
 
 ```markdown
 ### Concepts
-- [Transformers](wiki/concepts/Transformers.md) — overview
-    - [attention](wiki/concepts/Transformers/attention.md) — mechanism
+- [Transformers](/concepts/Transformers.md) — overview
+    - [attention](/concepts/Transformers/attention.md) — mechanism
 
 ### Entities
-- [Andrej Karpathy](wiki/entities/Andrej%20Karpathy.md) — researcher
+- [Andrej Karpathy](/entities/Andrej%20Karpathy.md) — researcher
 
 ### Summaries
-- [Karpathy LLM Wiki Gist](wiki/summaries/Karpathy%20LLM%20Wiki%20Gist.md) — original Gist (2026-04-09)
+- [Karpathy LLM Wiki Gist](/summaries/Karpathy%20LLM%20Wiki%20Gist.md) — original Gist (2026-04-09)
 ```
 
 ## Update cadence
 
 - After every new page: add to "Current articles".
-- After ingest batch: update research gaps.
-- After lint: fix dead links and orphans.
+- After ingest batch: update research gaps and `log.md`.
+- After lint: fix dead links and OKF conformance issues.
 - After audit: refresh audit backlog counts.

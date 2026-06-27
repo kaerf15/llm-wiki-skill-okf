@@ -1,48 +1,63 @@
-# llm-wiki
+# llm-wiki-skill-okf
 
-**面向多种 Agent 工具（Cursor、Trae、Claude Code 等）的 LLM Wiki Skill。**
+**仓库**：https://github.com/kaerf15/llm-wiki-skill-okf
 
-它把资料先沉淀成一个长期维护的 Markdown 知识库，再让 Agent 持续执行 `compile`、`ingest`、`query`、`lint`、`audit`。这不是传统 RAG 每次重新检索原文，而是让 LLM 把原始资料编译成可交叉链接、可审计、可迭代的 wiki。
+**面向多种 Agent 工具（Cursor、Trae、Claude Code 等）的 LLM Wiki Skill — 符合 [Open Knowledge Format (OKF) v0.1](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) 标准。**
 
-本项目基于 [lewislulu/llm-wiki-skill](https://github.com/lewislulu/llm-wiki-skill) 改造，适配通用 Agent 工作流：skill 安装在 `.agents/skills/`、wiki 使用标准 Markdown 链接、本地 Web viewer 提供阅读体验（反向链接、知识图谱、反馈入口）。
+它把资料先沉淀成一个长期维护的 OKF Markdown 知识库（Knowledge Bundle），再让 Agent 持续执行 `compile`、`ingest`、`query`、`lint`、`audit`。这不是传统 RAG 每次重新检索原文，而是让 LLM 把原始资料编译成可交叉链接、可审计、可迭代的概念文档集合。
+
+本项目基于 [lewislulu/llm-wiki-skill](https://github.com/lewislulu/llm-wiki-skill) 改造，对齐 Google Cloud [Knowledge Catalog](https://github.com/GoogleCloudPlatform/knowledge-catalog) 的 OKF 规范，同时保留 Karpathy llm-wiki 的五类操作与 audit 反馈闭环。
 
 灵感来自 [Andrej Karpathy 的 llm-wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)。
 
 ## 这个项目解决什么
 
-你负责提供资料、提出问题、指出 AI 写错的地方。Agent 负责读资料、写 wiki、维护链接、更新索引、处理反馈。
+你负责提供资料、选择知识库类型、提出问题、指出 AI 写错的地方。Agent 负责读资料、写 OKF 概念页、维护链接、更新索引、处理反馈。
 
-项目里包含两部分：
+项目里包含三部分：
 
-- `llm-wiki/`：Agent skill，定义 wiki 结构和五类操作。
+- `llm-wiki/`：Agent skill，定义 OKF bundle 结构和五类操作。
+- `audit-shared/`：审计 schema 与 OKF bundle 常量（web 使用）。
 - `web/`：本地预览服务，渲染 Markdown、Mermaid、KaTeX，提供反向链接与知识图谱，可在浏览器里提交反馈到 `audit/`。
+
+## OKF 与默认目录名
+
+新建知识库时，**默认文件夹名**为 `wiki-okf`（用户可自定义路径）。
+
+创建前 Agent 应确认**知识库类型**（若用户未指定则询问）：
+
+| 类型 | 适用场景 | 概念目录 |
+|------|----------|----------|
+| `research`（默认） | 论文、文章、通用研究 | `concepts/` · `entities/` · `summaries/` |
+| `catalog` | 数据资产、表、指标 | `datasets/` · `tables/` · `metrics/` |
+| `operations` | 运维手册、SOP | `playbooks/` · `runbooks/` · `references/` |
+| `general` | 最小 starter | `topics/` |
+
+```bash
+python3 llm-wiki/scripts/scaffold.py ~/wikis/wiki-okf "My Research Topic"
+python3 llm-wiki/scripts/scaffold.py ~/wikis/sales-catalog "Sales Data" --type catalog
+```
 
 ## 极简部署流程
 
 1. 安装前置依赖：Python 3、Node.js 20+、Git。
-2. 创建一个普通文件夹作为 wiki 根目录。
+2. 创建一个普通文件夹作为 bundle 根目录（推荐 `wiki-okf`）。
 3. 用 Cursor / Trae 等 Agent 工具打开该文件夹。
 4. 把下面「一键部署提示词」发给 Agent。
-5. Agent 会自动下载本项目、初始化 wiki、安装 skill；Web viewer 若本机尚未部署才安装，已部署则只注册当前 wiki。
+5. Agent 会自动下载本项目、初始化 OKF bundle、安装 skill；Web viewer 若本机尚未部署才安装，已部署则只注册当前 bundle。
 
 ## 推荐安装位置
 
-工具代码不要放进 wiki 知识库里。
+工具代码不要放进知识库里。
 
 ```text
 工具代码:
 macOS:   ~/Library/Application Support/llm-wiki/
 Windows: %LOCALAPPDATA%\llm-wiki\
 
-知识库:
-任意目录，例如 ~/Documents/my-wiki/
+知识库 (OKF bundle):
+任意目录，例如 ~/Documents/wiki-okf/
 ```
-
-部署完成后保留：
-
-- `web/` 和 `audit-shared/` → 用户级应用目录
-- `llm-wiki/` skill → `<WIKI_ROOT>/.agents/skills/llm-wiki/`
-- 临时 clone → 删除
 
 ## 前置依赖
 
@@ -60,87 +75,75 @@ git --version
 
 ## 一键部署提示词
 
-先用 Agent 打开 wiki 根目录，复制下面整段提示词：
+先用 Agent 打开 bundle 根目录，复制下面整段提示词：
 
 ```text
-请在当前 workspace（Wiki 根目录）里部署 llm-wiki。
+请在当前 workspace（OKF bundle 根目录）里部署 llm-wiki。
 
 请严格按下面要求执行：
-- 当前 workspace 就是 WIKI_ROOT。
-- 不要把 web/、audit-shared/ 复制到 WIKI_ROOT 里。
-- 需要把 llm-wiki skill 安装到：<WIKI_ROOT>/.agents/skills/llm-wiki/
-- 从 GitHub 下载：https://github.com/kaerf15/llm-wiki-skill-v2
+- 当前 workspace 就是 BUNDLE_ROOT。
+- 若用户未指定目录名，默认使用 wiki-okf 作为文件夹名。
+- 若用户未指定知识库类型，先询问：research / catalog / operations / general。
+- 不要把 web/、audit-shared/ 复制到 BUNDLE_ROOT 里。
+- 需要把 llm-wiki skill 安装到：<BUNDLE_ROOT>/.agents/skills/llm-wiki/
+- 从 GitHub 下载：https://github.com/kaerf15/llm-wiki-skill-okf
 - clone 只作临时安装源，部署完成后必须删除。
-- 运行组件在用户级 APP_ROOT（Web 是全局共享，多个 wiki 共用同一个 viewer）。
+- 运行组件在用户级 APP_ROOT（Web 是全局共享，多个 bundle 共用同一个 viewer）。
 - Web 端口：4875
 - 作者：lym
 
 参数：
-- REPO_URL=https://github.com/kaerf15/llm-wiki-skill-v2
-- WIKI_ROOT=当前 workspace 根目录
+- REPO_URL=https://github.com/kaerf15/llm-wiki-skill-okf
+- BUNDLE_ROOT=当前 workspace 根目录
 - APP_ROOT=用户级应用目录下的 llm-wiki
 - WIKIS_CONFIG=<APP_ROOT>/wikis.json
-- TEMP_CLONE=系统临时目录下的 llm-wiki-skill-v2 clone
+- TEMP_CLONE=系统临时目录下的 llm-wiki-skill-okf clone
 - PORT=4875
 - AUTHOR=lym
+- KB_TYPE=research（或用户指定的类型）
 
 部署原则（重要）：
-- Web viewer 是用户级全局服务，多个 wiki 共用；不要每次部署 wiki 都重装 Web。
-- 若检测到 Web 已部署且可用，跳过 Web 迁移/构建/自启动，只做 wiki 侧工作。
-- 每个 WIKI_ROOT 仍需安装/更新 skill，并把路径注册进 wikis.json。
-
-「Web 已部署」判定（满足即可跳过 Web 重装）：
-- <APP_ROOT>/web 与 <APP_ROOT>/audit-shared 存在
-- http://127.0.0.1:4875/api/config 可访问
-- （可选）macOS LaunchAgent com.llm-wiki.web 或 Windows 任务 LLM Wiki Web 已存在
+- Web viewer 是用户级全局服务，多个 bundle 共用；不要每次部署都重装 Web。
+- 若检测到 Web 已部署且可用，跳过 Web 迁移/构建/自启动，只做 bundle 侧工作。
+- 每个 BUNDLE_ROOT 仍需安装/更新 skill，并把路径注册进 wikis.json。
 
 目标：
 1. 检查前置依赖：python3、node 20+、npm、git。缺失则停止并说明。
-2. 确认 WIKI_ROOT 是真实目录；确定 APP_ROOT 与 WIKIS_CONFIG。
-3. clone REPO_URL 到 TEMP_CLONE（不要 clone 到 WIKI_ROOT）。
-4. 若 WIKI_ROOT 尚无 llm-wiki 结构，运行：
-   python3 <TEMP_CLONE>/llm-wiki/scripts/scaffold.py "<WIKI_ROOT>" "My Knowledge Base"
-5. 安装/更新 skill（每次部署 wiki 都要做）：
-   - 创建 <WIKI_ROOT>/.agents/skills
-   - 复制 <TEMP_CLONE>/llm-wiki 到 <WIKI_ROOT>/.agents/skills/llm-wiki
+2. 确认 BUNDLE_ROOT 是真实目录；确定 APP_ROOT 与 WIKIS_CONFIG。
+3. clone REPO_URL 到 TEMP_CLONE（不要 clone 到 BUNDLE_ROOT）。
+4. 若 BUNDLE_ROOT 尚无 OKF 结构，运行：
+   python3 <TEMP_CLONE>/llm-wiki/scripts/scaffold.py "<BUNDLE_ROOT>" "My Knowledge Base" --type <KB_TYPE>
+5. 安装/更新 skill（每次部署都要做）：
+   - 创建 <BUNDLE_ROOT>/.agents/skills
+   - 复制 <TEMP_CLONE>/llm-wiki 到 <BUNDLE_ROOT>/.agents/skills/llm-wiki
    - 若已存在则先删旧版再复制最新版
-6. 检测 Web 是否已部署（见上文判定）：
-   - 若已部署：跳过步骤 7–8，仅执行步骤 9 把 WIKI_ROOT 注册进 wikis.json
-   - 若未部署：执行步骤 7–9 完整安装 Web
-7. 【仅 Web 未部署时】迁移 Web runtime 到 APP_ROOT：
-   - 创建 APP_ROOT
-   - 复制 audit-shared/ 和 web/ 到 APP_ROOT
-8. 【仅 Web 未部署时】构建并安装自启动：
-   cd <APP_ROOT>/audit-shared && npm install && npm run build
-   cd <APP_ROOT>/web && npm install && npm run build
-   npm run autostart:install -- --wiki "<WIKI_ROOT>" --port 4875 --author "lym"
-9. 注册当前 wiki 到 wikis.json（已部署或未部署都要做）：
-   - 若 WIKI_ROOT 尚未在 wikis.json 中，运行：
-     cd <APP_ROOT>/web && npm run autostart:install -- --wiki "<WIKI_ROOT>" --port 4875 --author "lym"
-   - autostart:install 会合并写入 wikis.json，不会重复注册同一路径
-10. 安装 MarkItDown（若尚未安装）：
-    python3 -m pip install --user 'markitdown[all]'
-11. 验证：
+6. 检测 Web 是否已部署：
+   - 若已部署：跳过 Web 安装，仅注册 BUNDLE_ROOT 到 wikis.json
+   - 若未部署：完整安装 Web 到 APP_ROOT
+7. 构建 audit-shared 与 web（仅 Web 未部署时）
+8. 注册当前 bundle 到 wikis.json
+9. 安装 MarkItDown（若尚未安装）
+10. 验证：
     - http://127.0.0.1:4875 可访问
-    - /api/config 的 wikis 列表包含当前 WIKI_ROOT
-    - <WIKI_ROOT>/AGENTS.md 存在
-    - <WIKI_ROOT>/.agents/skills/llm-wiki/SKILL.md 存在
-12. 验证通过后删除 TEMP_CLONE。
-13. 汇报：Web 是否跳过重装、Web 地址、APP_ROOT、wikis.json 路径、skill 路径、当前 wiki 是否已注册。
+    - /api/config 的 wikis 列表包含当前 BUNDLE_ROOT
+    - <BUNDLE_ROOT>/index.md 存在且含 okf_version: "0.1"
+    - <BUNDLE_ROOT>/.agents/skills/llm-wiki/SKILL.md 存在
+11. 验证通过后删除 TEMP_CLONE。
+12. 汇报：Web 是否跳过重装、Web 地址、KB 类型、skill 路径、当前 bundle 是否已注册。
 ```
 
 ## 手动快速开始
 
 ```bash
-python3 llm-wiki/scripts/scaffold.py ~/my-wiki "My Research Topic"
-cp -r llm-wiki ~/.agents/skills/llm-wiki   # 或复制到 ~/my-wiki/.agents/skills/llm-wiki
+python3 llm-wiki/scripts/scaffold.py ~/wiki-okf "My Research Topic" --type research
+cp -r llm-wiki ~/wiki-okf/.agents/skills/llm-wiki
 ```
 
 导入非 Markdown 资料：
 
 ```bash
 python3 -m pip install --user 'markitdown[all]'
-python3 llm-wiki/scripts/import_source.py my-paper.pdf ~/my-wiki --kind papers
+python3 llm-wiki/scripts/import_source.py my-paper.pdf ~/wiki-okf --kind papers
 ```
 
 告诉 Agent：
@@ -152,95 +155,62 @@ python3 llm-wiki/scripts/import_source.py my-paper.pdf ~/my-wiki --kind papers
 健康检查：
 
 ```bash
-python3 llm-wiki/scripts/lint_wiki.py ~/my-wiki
-python3 llm-wiki/scripts/audit_review.py ~/my-wiki --open
+python3 llm-wiki/scripts/lint_wiki.py ~/wiki-okf
+python3 llm-wiki/scripts/audit_review.py ~/wiki-okf --open
 ```
 
-## 链接格式
+## OKF 链接格式
 
-Wiki 内容使用标准 Markdown 链接。每个 wiki 页面的**文件名必须等于** frontmatter 里的 `title:`（`wiki/index.md` 除外）：
+概念页使用 OKF 推荐的 bundle 根相对绝对路径：
 
 ```markdown
-[Transformers](wiki/concepts/Transformers.md)
-[品牌侦察赢对手](wiki/summaries/品牌侦察赢对手.md)
-[Andrej Karpathy](wiki/entities/Andrej%20Karpathy.md)
+[Transformers](/concepts/Transformers.md)
+[品牌侦察赢对手](/summaries/品牌侦察赢对手.md)
+[Andrej Karpathy](/entities/Andrej%20Karpathy.md)
 ```
 
-Web viewer 负责阅读体验：只显示链接文字、SPA 内导航、反向链接、知识图谱、死链高亮。
+每个概念页**必须**有 frontmatter `type:`。推荐同时设置 `title`、`description`、`tags`、`timestamp`。
+
+Web viewer 负责阅读体验：只显示链接文字、SPA 内导航、反向链接、知识图谱、死链高亮。兼容旧版 `wiki/...` 路径。
 
 ## Web Viewer
 
 默认地址：`http://127.0.0.1:4875`
 
-支持**多个 wiki**：路径写在 `wikis.json`，顶栏下拉框切换。
-
-配置文件位置（autostart 默认写入）：
-
-```text
-macOS:   ~/Library/Application Support/llm-wiki/wikis.json
-Windows: %LOCALAPPDATA%\llm-wiki\wikis.json
-Linux:   ~/.config/llm-wiki/wikis.json
-```
+支持**多个 bundle**：路径写在 `wikis.json`，顶栏下拉框切换。
 
 示例见 `web/wikis.example.json`：
 
 ```json
 {
-  "defaultWikiId": "research",
+  "defaultWikiId": "wiki-okf",
   "wikis": [
-    { "id": "research", "name": "AI Research", "path": "/Users/you/wikis/research" },
-    { "id": "work", "name": "Work Notes", "path": "/Users/you/wikis/work" }
+    { "id": "wiki-okf", "name": "AI Research", "path": "/Users/you/wikis/wiki-okf" },
+    { "id": "sales-catalog", "name": "Sales Catalog", "path": "/Users/you/wikis/sales-catalog" }
   ]
 }
 ```
 
-手动启动（单个 wiki）：
+URL 深链：`http://127.0.0.1:4875/?wiki=wiki-okf&page=index.md`
 
-```bash
-cd audit-shared && npm install && npm run build && cd ..
-cd web && npm install && npm run build
-npm start -- --wiki "/path/to/wiki-root"
-```
-
-多个 wiki：
-
-```bash
-npm start -- --wiki ~/wikis/research --wiki ~/wikis/work
-# 或使用配置文件
-npm start -- --wikis-config ~/Library/Application\ Support/llm-wiki/wikis.json
-```
-
-URL 深链：`http://127.0.0.1:4875/?wiki=research&page=wiki/index.md`
-
-安装自启动（可重复 `--wiki` 追加到 wikis.json）：
-
-```bash
-cd web
-npm run autostart:install -- --wiki "/path/to/wiki-a" --wiki "/path/to/wiki-b" --port 4875 --author "lym"
-```
-
-## MarkItDown 导入器
-
-```bash
-python3 llm-wiki/scripts/import_source.py "/path/to/source.pdf" "/path/to/wiki-root" --kind papers
-```
-
-可选 `--kind`：`articles` · `papers` · `notes`
-
-## 目录结构
+## 目录结构（OKF bundle）
 
 ```text
-llm-wiki-skill/
+llm-wiki-skill-okf/
 ├── llm-wiki/           # Agent skill
-├── audit-shared/       # 审计 schema（web 使用）
+├── audit-shared/       # 审计 schema + OKF bundle 常量
 └── web/                # 本地预览服务
 
-<wiki-root>/
+<bundle-root>/         # 默认名 wiki-okf
+├── index.md            # OKF 根索引 (okf_version: "0.1")
+├── log.md              # OKF 更新历史
 ├── AGENTS.md
 ├── CLAUDE.md
 ├── .agents/skills/llm-wiki/
+├── concepts/           # 概念页 (type: Concept)
+├── entities/           # 实体页 (type: Entity)
+├── summaries/          # 摘要页 (type: Summary)
 ├── raw/
-├── wiki/
 ├── audit/
 ├── log/
 └── outputs/
@@ -248,10 +218,11 @@ llm-wiki-skill/
 
 ## 使用场景
 
-- 研究一个主题，持续吸收论文、文章、网页
-- 用 Agent 维护可交叉引用的个人/团队知识库
+- 研究一个主题，持续吸收论文、文章、网页（OKF research 类型）
+- 为数据资产建立可共享的 catalog bundle（OKF catalog 类型）
+- 维护运维手册与 SOP（OKF operations 类型）
 - 用 audit 长期记录「AI 哪里写错了」
-- 在浏览器里浏览 wiki、查看反向链接和知识图谱
+- 导出 OKF bundle 供 Google Cloud Knowledge Catalog 或其他 OKF 消费者 ingest
 
 ## 作者
 

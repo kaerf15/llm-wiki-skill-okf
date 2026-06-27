@@ -5,6 +5,7 @@ import type { WikiRegistry } from "../config.js";
 import { createRenderer } from "../render/markdown.js";
 import { wikiPageLabel } from "../links.js";
 import { wikiOr400 } from "./helpers.js";
+import { defaultPagePath } from "../bundle.js";
 
 const renderers = new Map<string, ReturnType<typeof createRenderer>>();
 
@@ -23,7 +24,7 @@ export function handlePage(registry: WikiRegistry) {
     if (!wiki) return;
 
     const relRaw = (req.query.path as string | undefined) ?? "";
-    const rel = safeRel(relRaw);
+    const rel = safeRel(relRaw, wiki.path);
     if (!rel) {
       res.status(400).json({ error: "missing or invalid `path` query" });
       return;
@@ -67,7 +68,7 @@ export function handleRaw(registry: WikiRegistry) {
     if (!wiki) return;
 
     const relRaw = (req.query.path as string | undefined) ?? "";
-    const rel = safeRel(relRaw);
+    const rel = safeRel(relRaw, wiki.path);
     if (!rel) {
       res.status(400).send("bad path");
       return;
@@ -81,8 +82,11 @@ export function handleRaw(registry: WikiRegistry) {
   };
 }
 
-function safeRel(input: string): string | null {
-  if (!input) return "wiki/index.md";
+function safeRel(input: string, wikiRoot?: string): string | null {
+  if (!input) {
+    if (wikiRoot) return defaultPagePath(wikiRoot);
+    return "index.md";
+  }
   if (path.isAbsolute(input)) return null;
   const normalized = path.posix.normalize(input);
   if (normalized.startsWith("..")) return null;

@@ -3,8 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Local wiki preview + audit feedback server for the llm-wiki skill.",
+  "description": "Local wiki preview + audit feedback server for the llm-wiki-skill-okf project.",
   "author": "lym <973007435@qq.com> (https://github.com/kaerf15)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kaerf15/llm-wiki-skill-okf.git"
+  },
   "scripts": {
     "build": "node build-client.mjs",
     "test": "node --import tsx --test \"server/**/*.test.ts\"",

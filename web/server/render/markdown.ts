@@ -138,7 +138,7 @@ function stripFrontmatter(text: string): {
 }
 
 /**
- * Resolve a link target to a file under wikiRoot.
+ * Resolve a link target to a file under wikiRoot (OKF bundle or legacy wiki/).
  */
 export function findPage(wikiRoot: string, target: string): string | null {
   const tryPath = (rel: string): string | null => {
@@ -147,12 +147,18 @@ export function findPage(wikiRoot: string, target: string): string | null {
     return null;
   };
 
-  const direct = tryPath(target) || tryPath(target + ".md");
+  const normalized = target.startsWith("/") ? target.slice(1) : target;
+  const direct = tryPath(normalized) || tryPath(normalized + ".md");
   if (direct) return direct;
 
-  const wikiDir = path.join(wikiRoot, "wiki");
-  if (!fs.existsSync(wikiDir)) return null;
-  return findByStem(wikiDir, target);
+  for (const sub of ["wiki", "concepts", "entities", "summaries"]) {
+    const subDir = path.join(wikiRoot, sub);
+    if (fs.existsSync(subDir)) {
+      const found = findByStem(subDir, path.basename(normalized, ".md"));
+      if (found) return found;
+    }
+  }
+  return null;
 }
 
 function findByStem(dir: string, target: string): string | null {

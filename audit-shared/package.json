@@ -2,8 +2,12 @@
   "name": "audit-shared",
   "version": "0.1.0",
   "private": true,
-  "description": "Shared audit schema, anchor algorithm, id generator, and YAML serializer for the LLM Wiki web viewer.",
+  "description": "Shared audit schema, anchor algorithm, id generator, and YAML serializer for llm-wiki-skill-okf.",
   "author": "lym <973007435@qq.com> (https://github.com/kaerf15)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kaerf15/llm-wiki-skill-okf.git"
+  },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

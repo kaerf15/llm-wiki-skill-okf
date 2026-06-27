@@ -3,6 +3,7 @@ import path from "node:path";
 import url from "node:url";
 import fs from "node:fs";
 import { parseArgs, WikiRegistry } from "./config.js";
+import { defaultPagePath } from "./bundle.js";
 import { handleTree } from "./routes/tree.js";
 import { handlePage, handleRaw } from "./routes/pages.js";
 import { handleAuditList, handleAuditCreate, handleAuditResolve } from "./routes/audit.js";
@@ -25,6 +26,7 @@ app.get("/api/config", (_req, res) => {
       id: w.id,
       name: w.name,
       path: w.path,
+      defaultPage: defaultPagePath(w.path),
     })),
   });
 });

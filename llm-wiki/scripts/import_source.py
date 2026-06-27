@@ -92,12 +92,14 @@ def convert_with_markitdown(source: Path) -> str:
 def render_markdown(*, title: str, source: Path, kind: str, body: str) -> str:
     today = date.today().isoformat()
     return f"""---
+type: Reference
 title: {yaml_scalar(title)}
-type: raw-source
-source_path: {yaml_scalar(str(source))}
+description: Imported source ({kind}) converted by MarkItDown.
+resource: {yaml_scalar(str(source))}
+tags: [{kind}, raw-source]
+timestamp: {today}T00:00:00Z
 raw_kind: {kind}
 converted_by: markitdown
-created: {today}
 ---
 
 {body.rstrip()}

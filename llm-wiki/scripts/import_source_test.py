@@ -72,7 +72,8 @@ class ImportSourceTest(unittest.TestCase):
             )
             text = out_path.read_text(encoding="utf-8")
             self.assertIn('title: "Custom Title"', text)
-            self.assertIn("source_path:", text)
+            self.assertIn("type: Reference", text)
+            self.assertIn("resource:", text)
             self.assertIn("converted_by: markitdown", text)
             self.assertIn("# Converted\n\nBody", text)
 
