@@ -37,7 +37,27 @@ Features:
 - **Knowledge graph** — force-directed view of link structure (G key)
 - **Feedback** — select text → comment → writes to `audit/`
 
-### Autostart
+### Web deploy (recommended)
+
+After scaffolding a project, deploy web with the repo script (syncs, builds, validates paths):
+
+```bash
+node web/scripts/deploy.mjs \
+  --app-root ~/Library/Application\ Support/llm-wiki \
+  --wiki ~/Documents/OKF
+```
+
+- `--wiki` must be **PROJECT_ROOT** (contains `raw/`, `audit/`), not `wiki-okf/` subfolder.
+- Script verifies `<KB_DIR>/index.md` exists before writing `wikis.json`.
+
+Then start:
+
+```bash
+cd ~/Library/Application\ Support/llm-wiki/web
+npm start -- --wikis-config ~/Library/Application\ Support/llm-wiki/wikis.json
+```
+
+## Autostart
 
 ```bash
 npm run autostart:install -- --wiki "/path/to/OKF" --port 4875 --author "lym"

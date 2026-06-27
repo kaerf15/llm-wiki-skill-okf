@@ -18,6 +18,9 @@ interface WikiInfo {
   name: string;
   path: string;
   defaultPage?: string;
+  knowledgeRoot?: string;
+  valid?: boolean;
+  error?: string | null;
 }
 
 interface AppConfig {
@@ -125,6 +128,11 @@ async function main() {
       ? params.get("wiki")!
       : cfg.defaultWikiId;
   wikiSelect.value = state.currentWikiId;
+
+  const current = cfg.wikis.find((w) => w.id === state.currentWikiId);
+  if (current?.valid === false && current.error) {
+    console.warn(`Wiki ${current.id}: ${current.error}`);
+  }
 
   wikiSelect.addEventListener("change", () => {
     void switchWiki(wikiSelect.value, defaultPageForWiki(wikiSelect.value));
@@ -273,13 +281,18 @@ function isEditableFocused(): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (el as HTMLElement).isContentEditable;
 }
 
-async function loadPage(pathArg: string): Promise<void> {
+async function loadPage(pathArg: string, retried = false): Promise<void> {
   const pageEl = document.getElementById("page-content")!;
   pageEl.innerHTML = '<p class="loading">Loading</p>';
 
   try {
     const res = await fetch(`/api/page?${apiQuery({ path: pathArg })}`);
     if (!res.ok) {
+      const fallback = defaultPageForWiki(state.currentWikiId);
+      if (!retried && res.status === 404 && fallback !== pathArg) {
+        await loadPage(fallback, true);
+        return;
+      }
       pageEl.innerHTML = `<p class="loading">Failed to load <code>${escapeHtml(pathArg)}</code>: ${res.status}</p>`;
       return;
     }

@@ -3,7 +3,10 @@ import path from "node:path";
 import url from "node:url";
 import fs from "node:fs";
 import { parseArgs, WikiRegistry } from "./config.js";
-import { defaultPagePath, resolveKnowledgeRoot, readIndexMeta } from "./bundle.js";
+import {
+  defaultPagePath,
+  validateWikiProject,
+} from "./bundle.js";
 import { handleTree } from "./routes/tree.js";
 import { handlePage, handleRaw } from "./routes/pages.js";
 import { handleAuditList, handleAuditCreate, handleAuditResolve } from "./routes/audit.js";
@@ -12,6 +15,21 @@ import { handleBacklinks } from "./routes/backlinks.js";
 
 const cfg = parseArgs(process.argv);
 const registry = new WikiRegistry(cfg);
+
+function wikiRuntimeInfo(w: { id: string; name: string; path: string }) {
+  const v = validateWikiProject(w.path);
+  const kb = v.knowledgeRoot;
+  return {
+    id: w.id,
+    name: v.meta.name ?? w.name,
+    description: v.meta.description ?? null,
+    path: w.path,
+    knowledgeRoot: kb,
+    defaultPage: defaultPagePath(kb),
+    valid: v.valid,
+    error: v.error ?? null,
+  };
+}
 
 const app = express();
 app.use(express.json({ limit: "2mb" }));
@@ -22,17 +40,7 @@ app.get("/api/config", (_req, res) => {
     author: cfg.author,
     defaultWikiId: cfg.defaultWikiId,
     configPath: cfg.configPath,
-    wikis: cfg.wikis.map((w) => {
-      const kb = resolveKnowledgeRoot(w.path);
-      const meta = readIndexMeta(kb);
-      return {
-        id: w.id,
-        name: meta.name ?? w.name,
-        description: meta.description ?? null,
-        path: w.path,
-        defaultPage: defaultPagePath(kb),
-      };
-    }),
+    wikis: cfg.wikis.map(wikiRuntimeInfo),
   });
 });
 app.get("/api/tree", handleTree(registry));
@@ -68,8 +76,16 @@ app.listen(cfg.port, cfg.host, () => {
   console.log(`llm-wiki web server listening on http://${cfg.host}:${cfg.port}`);
   console.log(`  wikis (${cfg.wikis.length}):`);
   for (const w of cfg.wikis) {
+    const info = wikiRuntimeInfo(w);
     const mark = w.id === cfg.defaultWikiId ? " (default)" : "";
-    console.log(`    - ${w.id}${mark}: ${w.path}`);
+    if (info.valid) {
+      console.log(`    - ${w.id}${mark}: ${w.path}`);
+      if (info.knowledgeRoot !== path.resolve(w.path)) {
+        console.log(`      knowledge: ${info.knowledgeRoot}`);
+      }
+    } else {
+      console.warn(`    - ${w.id}${mark}: INVALID — ${info.error}`);
+    }
   }
   if (cfg.configPath) console.log(`  config: ${cfg.configPath}`);
   console.log(`  author: ${cfg.author}`);

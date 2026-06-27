@@ -7,6 +7,7 @@ import {
   defaultPagePath,
   readIndexMeta,
   resolveKnowledgeRoot,
+  validateWikiProject,
 } from "./bundle.js";
 
 test("resolveKnowledgeRoot finds wiki-okf subfolder", () => {
@@ -31,6 +32,20 @@ description: Test nested OKF bundle
   assert.equal(defaultPagePath(kb), "index.md");
   assert.equal(readIndexMeta(kb).name, "wiki-okf");
   assert.equal(readIndexMeta(kb).description, "Test nested OKF bundle");
+});
+
+test("validateWikiProject accepts nested llm-wiki project", () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "llm-wiki-validate-"));
+  fs.mkdirSync(path.join(project, "raw"), { recursive: true });
+  fs.mkdirSync(path.join(project, "audit"), { recursive: true });
+  fs.mkdirSync(path.join(project, "wiki-okf"), { recursive: true });
+  fs.writeFileSync(
+    path.join(project, "wiki-okf", "index.md"),
+    '---\nokf_version: "0.1"\nname: wiki-okf\n---\n\n# Index\n',
+  );
+  const v = validateWikiProject(project);
+  assert.equal(v.valid, true);
+  assert.equal(v.knowledgeRoot, path.join(project, "wiki-okf"));
 });
 
 test("resolveKnowledgeRoot finds custom KB subfolder", () => {

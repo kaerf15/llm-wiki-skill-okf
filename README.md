@@ -65,9 +65,12 @@ OKF/                       ← workspace（项目根）
 2. clone REPO_URL 到临时目录
 3. python3 <TEMP>/llm-wiki/scripts/scaffold.py "<PROJECT_ROOT>" "<主题>" --type <KB_TYPE> --kb-dir <KB_DIR>
 4. 复制 skill 到 <PROJECT_ROOT>/.agents/skills/llm-wiki
-5. Web：注册 PROJECT_ROOT 到 wikis.json
-6. 验证 KNOWLEDGE_ROOT 有 index.md（okf_version）、PROJECT_ROOT 有 raw/ 和 <KB_DIR>/
-7. 删除临时 clone
+5. Web 部署（必须用脚本，确保 build 最新、路径校验）：
+   node <TEMP>/web/scripts/deploy.mjs --app-root <APP_ROOT> --wiki "<PROJECT_ROOT>" --author lym
+   ★ --wiki 必须是 PROJECT_ROOT（含 raw/），不是 wiki-okf/ 子路径
+6. 启动或重启 Web：cd <APP_ROOT>/web && npm start -- --wikis-config <WIKIS_CONFIG>
+7. 验证 http://127.0.0.1:4875 可打开 index.md（非 404）
+8. 删除临时 clone
 
 【完成后汇报】
 - PROJECT_ROOT、KNOWLEDGE_ROOT（<KB_DIR>/）

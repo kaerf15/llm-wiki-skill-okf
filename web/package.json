@@ -15,6 +15,7 @@
     "prestart": "npm run build",
     "start": "tsx server/index.ts",
     "dev": "tsx watch server/index.ts",
+    "deploy": "node scripts/deploy.mjs",
     "autostart:install": "node scripts/autostart.mjs install",
     "autostart:uninstall": "node scripts/autostart.mjs uninstall"
   },
