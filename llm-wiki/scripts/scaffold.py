@@ -9,9 +9,12 @@ Example:
     python3 scaffold.py ~/wikis/wiki-okf "AI Research"
     python3 scaffold.py ~/wikis/my-catalog "Sales Data" --type catalog
 
-Creates an Open Knowledge Format (OKF) v0.1 bundle. Default folder name is
-wiki-okf (user may choose any path). Use --type to pick a knowledge-base
-profile; if omitted, the agent should ask the user before scaffolding.
+Creates an Open Knowledge Format (OKF) v0.1 bundle at BUNDLE_ROOT.
+
+Agent rules (see references/create-guide.md):
+- Only scaffold when the user asks to create/deploy.
+- Folder name: use user's name if given; else ask; default wiki-okf.
+- KB type: use user's type if given; else ask; default research (--type).
 
 KB types:
   research   — concepts/, entities/, summaries/ (Karpathy-style, default)

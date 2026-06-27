@@ -224,6 +224,18 @@ def is_concept_link(rel: str, root_path: Path) -> bool:
     return is_concept_document(rel) or rel.endswith("/index.md") or rel == "index.md"
 
 
+def should_skip_md_scan(root_path: Path, md_file: Path) -> bool:
+    """Skip producer extensions and meta files when scanning markdown for links."""
+    rel = md_file.relative_to(root_path).as_posix()
+    if any(part in BUNDLE_EXCLUDE_DIRS for part in md_file.relative_to(root_path).parts):
+        return True
+    if md_file.name in BUNDLE_META_FILES:
+        return True
+    if "audit" in md_file.parts and md_file.parent.name in {"audit", "resolved"}:
+        return True
+    return False
+
+
 def lint(root: str) -> int:
     root_path = Path(root)
     log_path = root_path / "log"
@@ -277,7 +289,7 @@ def lint(root: str) -> int:
     # ── Pass 1: dead links ──────────────────────────────────────────────
     dead_links: list[tuple[str, str, str]] = []
     for md_file in root_path.rglob("*.md"):
-        if "audit" in md_file.parts and md_file.parent.name in {"audit", "resolved"}:
+        if should_skip_md_scan(root_path, md_file):
             continue
         rel_from_root = md_file.relative_to(root_path).as_posix()
         text = md_file.read_text(encoding="utf-8")
@@ -375,6 +387,8 @@ def lint(root: str) -> int:
     # ── Pass 5: frequently linked but missing ───────────────────────────
     link_counts: dict[str, int] = defaultdict(int)
     for md_file in root_path.rglob("*.md"):
+        if should_skip_md_scan(root_path, md_file):
+            continue
         rel_from_root = md_file.relative_to(root_path).as_posix()
         text = md_file.read_text(encoding="utf-8")
         for _text, href in extract_md_links(text):

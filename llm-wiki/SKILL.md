@@ -5,11 +5,10 @@ description: >-
   Markdown bundle (Open Knowledge Format v0.1) where an Agent ingests raw
   sources, compiles cross-linked concept pages, answers queries against the
   corpus, lints for OKF health, and audits human feedback from the web viewer.
-  Use when (1) scaffolding a new OKF bundle (default folder wiki-okf), (2)
-  choosing or confirming a knowledge-base type (research/catalog/operations/general),
-  (3) ingesting articles/papers/PDFs into raw/, (4) compiling wiki concepts,
-  (5) answering questions and filing durable answers, (6) running lint passes,
-  (7) processing audit feedback. Not for general note-taking or daily journals.
+  Use when the user asks to (1) create/deploy/scaffold a new OKF knowledge base,
+  (2) ingest/compile/query/lint/audit an existing bundle. Before creating: ask
+  for bundle folder name and KB type if omitted (defaults: wiki-okf, research).
+  Use the user's name and type when specified. Do not create unless asked.
 ---
 
 # LLM Wiki — OKF Knowledge Base Pattern
@@ -28,9 +27,39 @@ The bundle is a living artifact with **five operations** — `compile`, `ingest`
 
 ## Starting a new bundle
 
-**Default folder name**: `wiki-okf` (user may choose any path).
+**Only create when the user asks** (deploy, scaffold, 建知识库, etc.). Do not scaffold proactively.
 
-**Before scaffolding**, confirm the knowledge-base type with the user if not specified:
+Read `references/create-guide.md` before every create. **Project directory ≠ knowledge base directory** — never scaffold inside `llm-wiki-skill-okf` tool repo.
+
+### Before creating: name and type
+
+Use what the user gave; ask for what's missing; then apply defaults.
+
+| Field | User specified | User did not specify |
+|-------|----------------|---------------------|
+| **Folder name** | Use **exactly** the name they gave | Ask: 「知识库文件夹叫什么？」→ default **`wiki-okf`** |
+| **KB type** | `--type` matching their intent (see table below) | Ask: 「什么类型的知识库？」→ default **`research`** |
+| **Topic title** | Use their title | Derive from folder name |
+
+### Types → directory layout
+
+| `--type` | When user says… | Concept dirs |
+|----------|-----------------|--------------|
+| `research` (**default**) | 研究、论文、通用 wiki | `concepts/`, `entities/`, `summaries/` |
+| `catalog` | 数据目录、表、指标 | `datasets/`, `tables/`, `metrics/` |
+| `operations` | 运维、SOP、runbook | `playbooks/`, `runbooks/`, `references/` |
+| `general` | 最小 starter | `topics/` |
+
+### Create workflow
+
+```bash
+mkdir -p <parent>/<folder-name>   # folder-name = user's name or wiki-okf
+python3 scripts/scaffold.py <BUNDLE_ROOT> "<Topic Title>" --type <type>
+mkdir -p <BUNDLE_ROOT>/.agents/skills
+cp -R <skill-source>/llm-wiki <BUNDLE_ROOT>/.agents/skills/llm-wiki
+```
+
+If workspace is already the empty target folder, use `.` as `BUNDLE_ROOT`.
 
 | `--type` | Use case | Concept folders |
 |----------|----------|-----------------|
@@ -40,11 +69,11 @@ The bundle is a living artifact with **five operations** — `compile`, `ingest`
 | `general` | Minimal starter | `topics/` |
 
 ```bash
-python3 scripts/scaffold.py ~/wikis/wiki-okf "My Research Topic"
+python3 scripts/scaffold.py ~/Documents/wiki-okf "My Research Topic" --type research
 python3 scripts/scaffold.py ~/wikis/sales-catalog "Sales Data" --type catalog
 ```
 
-Install skill to `<bundle-root>/.agents/skills/llm-wiki/` (see project README).
+Install skill to `<BUNDLE_ROOT>/.agents/skills/llm-wiki/` only — see `references/create-guide.md`.
 
 ## OKF directory layout
 
@@ -226,6 +255,7 @@ okf_version: "0.1"
 
 ## References
 
+- `references/create-guide.md` — **How to create a bundle (project vs KB path)**
 - `references/okf-guide.md` — OKF v0.1 conformance rules
 - `references/schema-guide.md` — What to put in `AGENTS.md`
 - `references/article-guide.md` — How to write concept pages
