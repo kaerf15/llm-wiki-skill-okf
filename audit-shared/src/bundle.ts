@@ -6,8 +6,8 @@
 /** OKF spec version this project targets. */
 export const OKF_VERSION = "0.1";
 
-/** Default suggested folder name when scaffolding a new bundle. */
-export const DEFAULT_BUNDLE_DIR = "wiki-okf";
+/** Example workspace folder name (bundle root = folder user opens). */
+export const DEFAULT_BUNDLE_DIR = "OKF";
 
 /** Directories excluded from concept scanning (producer extensions). */
 export const BUNDLE_EXCLUDE_DIRS = new Set([

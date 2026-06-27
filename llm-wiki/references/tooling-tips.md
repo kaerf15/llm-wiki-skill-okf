@@ -9,14 +9,14 @@ Local Node.js server: mermaid, KaTeX, backlinks, knowledge graph, audit feedback
 Register bundles in `wikis.json` (see `web/wikis.example.json`). The top-bar dropdown switches wikis without restarting the server.
 
 ```bash
-npm start -- --wiki ~/wikis/wiki-okf --wiki ~/wikis/work-catalog
+npm start -- --wiki ~/Documents/OKF --wiki ~/wikis/sales-catalog
 npm start -- --wikis-config ~/Library/Application\ Support/llm-wiki/wikis.json
 ```
 
 Autostart merges `--wiki` paths into the default config file:
 
 ```bash
-npm run autostart:install -- --wiki ~/wikis/wiki-okf --wiki ~/wikis/work
+npm run autostart:install -- --wiki ~/Documents/OKF --wiki ~/wikis/work
 ```
 
 ### Single wiki
@@ -25,7 +25,7 @@ npm run autostart:install -- --wiki ~/wikis/wiki-okf --wiki ~/wikis/work
 cd web
 npm install
 npm run build
-npm start -- --wiki "/path/to/wiki-okf"
+npm start -- --wiki "/path/to/OKF"
 ```
 
 Open `http://127.0.0.1:4875`.
@@ -40,7 +40,7 @@ Features:
 ### Autostart
 
 ```bash
-npm run autostart:install -- --wiki "/path/to/wiki-okf" --port 4875 --author "lym"
+npm run autostart:install -- --wiki "/path/to/OKF" --port 4875 --author "lym"
 npm run autostart:uninstall   # remove
 ```
 
@@ -60,17 +60,17 @@ Cursor users may optionally symlink to `.cursor/skills/llm-wiki/`.
 ## Scaffolding OKF bundles
 
 ```bash
-python3 scripts/scaffold.py ~/wikis/wiki-okf "My Topic"
+python3 scripts/scaffold.py ~/Documents/OKF "My Topic"
 python3 scripts/scaffold.py ~/wikis/sales-catalog "Sales Data" --type catalog
 ```
 
-Default folder name: **wiki-okf**. Ask the user for KB type if not specified.
+Bundle root = workspace folder the user opened. Ask for KB type if not specified.
 
 ## MarkItDown importer
 
 ```bash
 python3 -m pip install --user 'markitdown[all]'
-python3 scripts/import_source.py "/path/to/source.pdf" "/path/to/wiki-okf" --kind papers
+python3 scripts/import_source.py "/path/to/source.pdf" "/path/to/OKF" --kind papers
 ```
 
 Kinds: `articles` · `papers` · `notes`
@@ -79,9 +79,9 @@ Kinds: `articles` · `papers` · `notes`
 
 ```bash
 pip install qmd
-qmd collection add . --name my-wiki-okf
+qmd collection add . --name my-okf
 qmd embed
-qmd query "your question" --collection my-wiki-okf
+qmd query "your question" --collection my-okf
 ```
 
 ## Git workflow

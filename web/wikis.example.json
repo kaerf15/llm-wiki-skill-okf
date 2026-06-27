@@ -1,10 +1,10 @@
 {
-  "defaultWikiId": "wiki-okf",
+  "defaultWikiId": "okf",
   "wikis": [
     {
-      "id": "wiki-okf",
+      "id": "okf",
       "name": "AI Research (OKF)",
-      "path": "/Users/you/wikis/wiki-okf"
+      "path": "/Users/you/Documents/OKF"
     },
     {
       "id": "sales-catalog",

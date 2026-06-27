@@ -6,15 +6,15 @@ Usage:
     python3 scaffold.py <bundle-root> "<Topic Title>" [--type research|catalog|operations|general]
 
 Example:
-    python3 scaffold.py ~/wikis/wiki-okf "AI Research"
+    python3 scaffold.py ~/Documents/OKF "AI Research"
     python3 scaffold.py ~/wikis/my-catalog "Sales Data" --type catalog
 
 Creates an Open Knowledge Format (OKF) v0.1 bundle at BUNDLE_ROOT.
 
 Agent rules (see references/create-guide.md):
 - Only scaffold when the user asks to create/deploy.
-- BUNDLE_ROOT = WORKSPACE/KB_NAME subfolder unless workspace folder is already named KB_NAME.
-- Never scatter concepts/raw at workspace root when workspace name != KB_NAME.
+- BUNDLE_ROOT = WORKSPACE (the folder the user opened).
+- Do not nest wiki/ or wiki-okf/ subfolders — OKF concepts live at bundle root.
 
 KB types:
   research   — concepts/, entities/, summaries/ (Karpathy-style, default)
@@ -31,7 +31,8 @@ import sys
 from datetime import date, datetime, timezone
 
 OKF_VERSION = "0.1"
-DEFAULT_BUNDLE_DIR = "wiki-okf"
+# Legacy Karpathy layout used a wiki/ subfolder; OKF uses bundle root directly.
+DEFAULT_BUNDLE_DIR = "OKF"
 
 KB_TYPES: dict[str, dict] = {
     "research": {
@@ -233,11 +234,11 @@ okf_version: "{OKF_VERSION}"
 
 > **本文件夹（`{os.path.basename(root)}`）就是 OKF 知识库（BUNDLE_ROOT）。**
 
-父级 workspace 若另有名字（如 `OKF/`），知识库应在其下的 **`{os.path.basename(root)}/`** 子文件夹中，不应在父级根 scattered `concepts/`。
+旧版 Karpathy layout 把内容放在 `wiki/` 子目录；OKF 对齐后 `index.md`、`concepts/` 等直接在 bundle 根，**不要再套** `wiki/` 或 `wiki-okf/` 子文件夹。
 
 | 路径 | 用途 |
 |------|------|
-| `index.md` | 知识库总索引 |
+| `index.md` | 知识库总索引（原 `wiki/index.md` 的角色） |
 | `concepts/` · `entities/` · `summaries/` | 概念页（ingest 后才有内容） |
 | `raw/` | 原始资料 |
 | `audit/` | 人工反馈 |
@@ -261,7 +262,7 @@ okf_version: "{OKF_VERSION}"
 知识库目录（BUNDLE_ROOT）：
   {root}/
 
-请在文件树中打开名为「{os.path.basename(root)}」的文件夹；concepts/、raw/ 等在其内部。
+左侧文件树应在本文件夹根直接看到 index.md、concepts/、raw/。
 ingest 之前 concept 目录为空是正常的。
 
 Profile: {kb_type} ({profile["label"]})
@@ -286,7 +287,7 @@ def _write(root: str, path: str, content: str) -> None:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("root", help="Bundle root directory (default name suggestion: wiki-okf)")
+    parser.add_argument("root", help="Bundle root directory (= workspace the user opened)")
     parser.add_argument("title", help='Topic title, e.g. "AI Research"')
     parser.add_argument(
         "--type",

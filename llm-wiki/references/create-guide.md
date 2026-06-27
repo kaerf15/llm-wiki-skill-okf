@@ -4,55 +4,69 @@ Skill **仅在用户明确要求创建知识库时**才执行 scaffold。
 
 ## 知识库目录是什么
 
-**知识库 = 一个名为 `<KB_NAME>` 的文件夹**（默认 `wiki-okf`），里面有 `index.md`、`concepts/`、`raw/` 等。
+**知识库 = 用户用 Cursor 打开的那个 workspace 文件夹本身。**
+
+旧版 Karpathy layout 把 AI 解析后的内容放在 `wiki/` 子目录（`wiki/concepts/`、`wiki/index.md`）。  
+OKF 对齐后：**不再有 `wiki/` 这一层**，概念页直接在 bundle 根下（`concepts/`、`entities/`、`summaries/`、`index.md`）。
 
 ```text
-OKF/                      ← 用户 workspace（容器，可以叫任意名）
-└── wiki-okf/              ← ★ 这才是知识库目录（BUNDLE_ROOT）
-    ├── BUNDLE.md
-    ├── index.md
-    ├── concepts/
-    ├── raw/
-    └── .agents/skills/llm-wiki/
+OKF/                      ← 用户 workspace = BUNDLE_ROOT（名字随意）
+├── index.md              ← 原 wiki/index.md 的角色
+├── concepts/ · raw/ · audit/
+└── .agents/skills/llm-wiki/
 ```
 
-**禁止**在 workspace 根（如 `OKF/`）直接生成 `concepts/`、`raw/`、`index.md` — 除非 workspace 文件夹**本身就叫** `wiki-okf`（或用户指定的 KB_NAME）。
+**禁止**再套一层 `wiki-okf/` 或 `wiki/` 子文件夹。  
+**禁止**在工具项目仓库（含 `llm-wiki/`、`web/`、`audit-shared/`）里 scaffold。
 
 ## 解析 BUNDLE_ROOT（必遵）
 
 ```
-KB_NAME = 用户指定的名称；未指定则问；仍无则 wiki-okf
 WORKSPACE = 当前 Cursor 打开的文件夹绝对路径
 
-若 basename(WORKSPACE) == KB_NAME 且（为空或已是 bundle）:
-  BUNDLE_ROOT = WORKSPACE
+若 WORKSPACE 含 llm-wiki/ + web/ + audit-shared/（工具项目）:
+  停止 — 请用户另建空文件夹作为 workspace
+
 否则:
-  BUNDLE_ROOT = WORKSPACE / KB_NAME    ← 必须 mkdir 后 scaffold 到这里
+  BUNDLE_ROOT = WORKSPACE
+  scaffold.py 目标 = BUNDLE_ROOT（即 "." 或 WORKSPACE 绝对路径）
 ```
 
-| workspace 文件夹名 | KB_NAME | BUNDLE_ROOT |
-|--------------------|---------|-------------|
-| `OKF` | `wiki-okf`（默认） | `OKF/wiki-okf/` |
-| `Documents` | `wiki-okf` | `Documents/wiki-okf/` |
-| `wiki-okf` | `wiki-okf` | `wiki-okf/`（当前目录） |
-| `OKF` | `my-research`（用户指定） | `OKF/my-research/` |
+| 用户操作 | BUNDLE_ROOT |
+|----------|-------------|
+| 新建空文件夹 `OKF/`，用 Cursor 打开 | `OKF/` |
+| 新建空文件夹 `my-research/`，用 Cursor 打开 | `my-research/` |
+| 打开 llm-wiki-skill-okf 工具仓库 | ❌ 不是知识库 |
 
-创建完成后告诉用户：**「知识库目录是 `<BUNDLE_ROOT>`，请在左侧点开 `<KB_NAME>` 文件夹。」**
+创建完成后告诉用户：**「知识库就在当前 workspace 根目录，左侧应直接看到 index.md、concepts/、raw/。」**
+
+## 从旧 `wiki/` 迁移
+
+若已有 legacy layout（`wiki/concepts/`、`wiki/index.md`）：
+
+1. 在 `compile` / 迁移时把 `wiki/` 下内容提升到 bundle 根（`concepts/` → `concepts/` 等）
+2. 链接从 `wiki/concepts/Foo.md` 改为 `/concepts/Foo.md`
+3. 根索引改为 bundle 根的 `index.md`（含 `okf_version: "0.1"`）
+4. 删除空的 `wiki/` 目录
+
+Web viewer 与 linter 仍兼容 `wiki/...` 链接，但新内容一律用 OKF 根布局。
 
 ## 何时创建
 
 | 用户说 | Agent 做 |
 |--------|----------|
-| 「部署 llm-wiki」「建知识库」「scaffold」 | 按上表解析 BUNDLE_ROOT 后创建 |
+| 「部署 llm-wiki」「建知识库」「scaffold」 | `BUNDLE_ROOT = WORKSPACE`，在根目录 scaffold |
 | 只问 OKF 是什么 | 不创建 |
 | 已在 bundle 里 ingest | 不创建 |
 
-## 创建前：名称与类型
+## 创建前：类型与主题
 
 | 项 | 用户说了 | 用户没说 |
 |----|--------|--------|
-| **KB_NAME（文件夹名）** | 用用户给的 | 先问；仍无 → **`wiki-okf`** |
 | **类型 `--type`** | 用对应类型 | 先问；仍无 → **`research`** |
+| **主题标题** | 用用户给的 | 从 workspace 文件夹名推导 |
+
+文件夹名 = workspace 名，**不需要**再单独问「知识库叫什么」。
 
 | `--type` | 概念目录 |
 |----------|----------|
@@ -64,31 +78,27 @@ WORKSPACE = 当前 Cursor 打开的文件夹绝对路径
 ## 标准命令
 
 ```bash
-# workspace=~/OKF, KB_NAME=wiki-okf → BUNDLE_ROOT=~/OKF/wiki-okf
-mkdir -p ~/OKF/wiki-okf
-python3 scripts/scaffold.py ~/OKF/wiki-okf "My Topic" --type research
-cp -R <skill-source>/llm-wiki ~/OKF/wiki-okf/.agents/skills/llm-wiki
+# workspace = ~/OKF → 直接在 ~/OKF 根 scaffold
+python3 scripts/scaffold.py ~/OKF "My Topic" --type research
+cp -R <skill-source>/llm-wiki ~/OKF/.agents/skills/llm-wiki
 ```
 
 ## 两个目录，不要混
 
 | | 工具项目 | 知识库 |
 |--|----------|--------|
-| 示例 | llm-wiki-skill-okf 仓库 | `…/wiki-okf/` 文件夹 |
-| 含 | `web/`、`llm-wiki/` 源码 | `index.md`、`concepts/` |
-
-禁止在工具项目根 scaffold。禁止在 workspace 根 scatter（除非 workspace 名 == KB_NAME）。
+| 示例 | llm-wiki-skill-okf 仓库 | 用户打开的 workspace（如 `~/OKF/`） |
+| 含 | `web/`、`llm-wiki/` 源码 | `index.md`、`concepts/`、`raw/` |
 
 ## 创建完成后
 
 - 空 `concepts/` 正常，ingest 后才有 `.md`
-- 确认：存在 **`<KB_NAME>/index.md`**（含 `okf_version: "0.1"`）和 **`<KB_NAME>/BUNDLE.md`**
+- 确认 workspace 根有 **`index.md`**（含 `okf_version: "0.1"`）和 **`BUNDLE.md`**
 
 ## 常见错误
 
 | 错误 | 正确 |
 |------|------|
-| 在 `OKF/` 根下直接建 concepts/ | 建 `OKF/wiki-okf/concepts/` |
-| 说「workspace 就是 bundle」 | workspace 是容器；**子文件夹 KB_NAME 才是 bundle** |
-| workspace 叫 OKF 就把 KB 也叫 OKF | KB 默认名是 **wiki-okf**，与 workspace 名无关 |
-| 在 llm-wiki-skill-okf 项目里 scaffold | 在用户 workspace 下的 `<KB_NAME>/` |
+| 在 `OKF/` 下再建 `wiki-okf/` 子文件夹 | 直接在 `OKF/` 根建 `index.md`、`concepts/` |
+| 保留 `wiki/concepts/` 新布局 | OKF 用根级 `concepts/` |
+| 在 llm-wiki-skill-okf 项目里 scaffold | 在用户 workspace 根目录 |

@@ -7,9 +7,9 @@ description: >-
   corpus, lints for OKF health, and audits human feedback from the web viewer.
   Use when the user asks to (1) create/deploy/scaffold a new OKF knowledge base,
   (2) ingest/compile/query/lint/audit an existing bundle. Before creating: ask
-  for bundle folder name and KB type if omitted (defaults: wiki-okf, research).
-  Create bundle at WORKSPACE/KB_NAME subfolder unless workspace is already named KB_NAME.
-  Do not scatter concepts/raw at workspace root when workspace name differs from KB_NAME.
+  for KB type if omitted (default: research). BUNDLE_ROOT = WORKSPACE — the
+  folder the user opened is the bundle root. Do not nest wiki/ or wiki-okf/
+  subfolders. Legacy wiki/ layout flattens to OKF root (concepts/, index.md).
 ---
 
 # LLM Wiki — OKF Knowledge Base Pattern
@@ -34,27 +34,26 @@ Read `references/create-guide.md` before every create. **Project directory ≠ k
 
 ### 解析 BUNDLE_ROOT（必遵 — read create-guide.md）
 
-**Knowledge base = subfolder named `KB_NAME` (default `wiki-okf`), NOT the workspace root** unless `basename(workspace) == KB_NAME`.
+**Knowledge base = the workspace folder the user opened.** No extra `wiki/` or `wiki-okf/` subfolder.
 
 ```
-KB_NAME = user name or default wiki-okf
-if basename(WORKSPACE) == KB_NAME:
-  BUNDLE_ROOT = WORKSPACE
+if WORKSPACE contains llm-wiki/ + web/ + audit-shared/ (tool repo):
+  STOP — user must open a dedicated empty folder
 else:
-  BUNDLE_ROOT = WORKSPACE / KB_NAME   # mkdir, scaffold HERE — never scatter at workspace root
+  BUNDLE_ROOT = WORKSPACE
+  scaffold at BUNDLE_ROOT (index.md, concepts/, raw/ at workspace root)
 ```
 
-Example: workspace `OKF/` + default name → **`OKF/wiki-okf/`** is the bundle. Tell user to open that folder.
+Legacy Karpathy layout used `wiki/concepts/` — OKF puts `concepts/` at bundle root. On `compile`, flatten `wiki/` when migrating.
 
-### Before creating: name and type
+### Before creating: type and title
 
 Use what the user gave; ask for what's missing; then apply defaults.
 
 | Field | User specified | User did not specify |
 |-------|----------------|---------------------|
-| **Folder name** | Use **exactly** the name they gave | Ask: 「知识库文件夹叫什么？」→ default **`wiki-okf`** |
 | **KB type** | `--type` matching their intent (see table below) | Ask: 「什么类型的知识库？」→ default **`research`** |
-| **Topic title** | Use their title | Derive from folder name |
+| **Topic title** | Use their title | Derive from workspace folder name |
 
 ### Types → directory layout
 
@@ -68,26 +67,14 @@ Use what the user gave; ask for what's missing; then apply defaults.
 ### Create workflow
 
 ```bash
-# Example: workspace ~/OKF, KB_NAME wiki-okf → BUNDLE_ROOT=~/OKF/wiki-okf
-mkdir -p <WORKSPACE>/<KB_NAME>
-python3 scripts/scaffold.py <WORKSPACE>/<KB_NAME> "<Topic Title>" --type <type>
+# workspace ~/OKF → BUNDLE_ROOT=~/OKF
+python3 scripts/scaffold.py <WORKSPACE> "<Topic Title>" --type <type>
 mkdir -p <BUNDLE_ROOT>/.agents/skills
 cp -R <skill-source>/llm-wiki <BUNDLE_ROOT>/.agents/skills/llm-wiki
 ```
 
-Only use `BUNDLE_ROOT=.` when the opened folder is **already named** `KB_NAME` and empty.
-
-Do **not** run `scaffold.py .` when workspace is named `OKF` or anything other than `KB_NAME`.
-
-| `--type` | Use case | Concept folders |
-|----------|----------|-----------------|
-| `research` (default) | Papers, articles, general research | `concepts/`, `entities/`, `summaries/` |
-| `catalog` | Data assets, tables, metrics | `datasets/`, `tables/`, `metrics/` |
-| `operations` | Runbooks, playbooks, SOPs | `playbooks/`, `runbooks/`, `references/` |
-| `general` | Minimal starter | `topics/` |
-
 ```bash
-python3 scripts/scaffold.py ~/Documents/wiki-okf "My Research Topic" --type research
+python3 scripts/scaffold.py ~/Documents/OKF "My Research Topic" --type research
 python3 scripts/scaffold.py ~/wikis/sales-catalog "Sales Data" --type catalog
 ```
 
@@ -96,8 +83,8 @@ Install skill to `<BUNDLE_ROOT>/.agents/skills/llm-wiki/` only — see `referenc
 ## OKF directory layout
 
 ```
-<bundle-root>/          ← default name: wiki-okf
-├── index.md            ← Root index (okf_version: "0.1" in frontmatter)
+<workspace>/            ← user opens this folder = bundle root (e.g. ~/OKF)
+├── index.md            ← Root index (okf_version: "0.1"; replaces legacy wiki/index.md)
 ├── log.md              ← OKF update history (optional)
 ├── AGENTS.md           ← Schema: scope, KB type, conventions
 ├── CLAUDE.md           ← Compatibility pointer: @AGENTS.md

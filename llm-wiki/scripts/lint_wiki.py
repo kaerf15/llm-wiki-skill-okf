@@ -6,7 +6,7 @@ Usage:
     python3 lint_wiki.py <bundle-root>
 
 Example:
-    python3 lint_wiki.py ~/wikis/wiki-okf
+    python3 lint_wiki.py ~/Documents/OKF
 
 Checks:
   1. Dead links — markdown links to missing concept files
