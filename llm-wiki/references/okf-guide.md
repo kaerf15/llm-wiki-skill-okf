@@ -110,6 +110,8 @@ Root `index.md`:
 ```markdown
 ---
 okf_version: "0.1"
+name: my-research
+description: One-sentence scope — shown to agents like Skill description.
 ---
 
 # Index — My Topic

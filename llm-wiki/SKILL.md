@@ -121,7 +121,7 @@ timestamp: 2026-06-28T10:00:00Z
 
 Recommended fields: `title`, `description`, `tags`, `timestamp`, `resource` (URI for bound assets).
 
-Root `index.md` is special — it declares `okf_version: "0.1"` and has no `type`. Subdirectory `index.md` files have no frontmatter.
+Root `index.md` is special — it declares `okf_version`, plus **`name`** and **`description`** (like Skill `SKILL.md` for agent discovery). No `type`. Subdirectory `index.md` files have no frontmatter.
 
 ## Core principles
 
@@ -238,9 +238,12 @@ Process human feedback from `audit/`. See `references/audit-guide.md`.
 ```markdown
 ---
 okf_version: "0.1"
+name: my-research
+description: One-sentence scope for agents (like Skill description).
 ---
 
-# Index — <Topic>
+# Index — My Topic
+```
 
 > One-sentence scope.
 

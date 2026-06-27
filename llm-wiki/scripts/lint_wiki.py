@@ -68,13 +68,46 @@ def is_okf_bundle(knowledge_path: Path) -> bool:
 
 
 def resolve_knowledge_root(project_path: Path) -> Path:
-    if is_okf_bundle(project_path):
-        return project_path
+    if is_okf_bundle(project_path) or _has_knowledge_index(project_path):
+        if read_okf_version(project_path) or not _looks_like_project_root(project_path):
+            return project_path
     for name in (DEFAULT_KB_DIR, LEGACY_WIKI):
         sub = project_path / name
-        if sub.is_dir() and (is_okf_bundle(sub) or (name == LEGACY_WIKI and (sub / "index.md").exists())):
+        if sub.is_dir() and _has_knowledge_index(sub):
             return sub
+    try:
+        for p in sorted(project_path.iterdir()):
+            if not p.is_dir() or p.name.startswith("."):
+                continue
+            if p.name in BUNDLE_EXCLUDE_DIRS:
+                continue
+            if _has_knowledge_index(p):
+                return p
+    except OSError:
+        pass
     return project_path
+
+
+def _has_knowledge_index(path: Path) -> bool:
+    return (path / "index.md").is_file()
+
+
+def read_okf_version(knowledge_path: Path) -> str | None:
+    index = knowledge_path / "index.md"
+    if not index.exists():
+        return None
+    text = index.read_text(encoding="utf-8")
+    m = re.search(r"^okf_version:\s*[\"']?([^\"'\n]+)[\"']?\s*$", text, re.M)
+    return m.group(1).strip() if m else None
+
+
+def _looks_like_project_root(path: Path) -> bool:
+    if read_okf_version(path):
+        return False
+    has_raw = (path / "raw").is_dir()
+    has_audit = (path / "audit").is_dir()
+    has_concepts = (path / "concepts").is_dir() or (path / "entities").is_dir()
+    return has_raw and has_audit and not has_concepts
 
 
 def collect_concept_files(knowledge_path: Path) -> list[Path]:

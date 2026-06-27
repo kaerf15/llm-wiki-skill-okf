@@ -3,7 +3,7 @@ import path from "node:path";
 import url from "node:url";
 import fs from "node:fs";
 import { parseArgs, WikiRegistry } from "./config.js";
-import { defaultPagePath, resolveKnowledgeRoot } from "./bundle.js";
+import { defaultPagePath, resolveKnowledgeRoot, readIndexMeta } from "./bundle.js";
 import { handleTree } from "./routes/tree.js";
 import { handlePage, handleRaw } from "./routes/pages.js";
 import { handleAuditList, handleAuditCreate, handleAuditResolve } from "./routes/audit.js";
@@ -22,12 +22,17 @@ app.get("/api/config", (_req, res) => {
     author: cfg.author,
     defaultWikiId: cfg.defaultWikiId,
     configPath: cfg.configPath,
-    wikis: cfg.wikis.map((w) => ({
-      id: w.id,
-      name: w.name,
-      path: w.path,
-      defaultPage: defaultPagePath(resolveKnowledgeRoot(w.path)),
-    })),
+    wikis: cfg.wikis.map((w) => {
+      const kb = resolveKnowledgeRoot(w.path);
+      const meta = readIndexMeta(kb);
+      return {
+        id: w.id,
+        name: meta.name ?? w.name,
+        description: meta.description ?? null,
+        path: w.path,
+        defaultPage: defaultPagePath(kb),
+      };
+    }),
   });
 });
 app.get("/api/tree", handleTree(registry));

@@ -25,12 +25,17 @@ Agent: ask user for --kb-dir before running; default wiki-okf only after user co
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from datetime import date, datetime, timezone
 
 OKF_VERSION = "0.1"
 DEFAULT_KB_DIR = "wiki-okf"
+
+
+def yaml_scalar(s: str) -> str:
+    return json.dumps(s, ensure_ascii=False)
 
 KB_TYPES: dict[str, dict] = {
     "research": {
@@ -221,8 +226,11 @@ Sources to ingest:
     )
     index_sections_md = "\n\n".join(f"## {s}\n\n*(none yet)*" for s in profile["index_sections"])
 
+    kb_name = os.path.basename(knowledge)
     index_md = f"""---
 okf_version: "{OKF_VERSION}"
+name: {yaml_scalar(kb_name)}
+description: {yaml_scalar(f"OKF knowledge base — {title}")}
 ---
 
 # Index — {title}

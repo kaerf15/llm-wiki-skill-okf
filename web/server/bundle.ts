@@ -33,28 +33,82 @@ export function isExcludedRelPath(relPath: string): boolean {
 
 /** Read okf_version from root index.md frontmatter, if present. */
 export function readOkfVersion(knowledgeRoot: string): string | null {
+  return readIndexMeta(knowledgeRoot).okfVersion ?? null;
+}
+
+/** Parse root index.md frontmatter (OKF + agent discovery fields). */
+export function readIndexMeta(knowledgeRoot: string): {
+  okfVersion?: string;
+  name?: string;
+  description?: string;
+} {
   const indexPath = path.join(knowledgeRoot, OKF_INDEX_PATH);
-  if (!fs.existsSync(indexPath)) return null;
+  if (!fs.existsSync(indexPath)) return {};
   const text = fs.readFileSync(indexPath, "utf-8");
   const m = /^---\n([\s\S]*?)\n---/.exec(text);
-  if (!m) return null;
-  const versionLine = /^okf_version:\s*["']?([^"'\n]+)["']?\s*$/m.exec(m[1]!);
-  return versionLine ? versionLine[1]!.trim() : null;
+  if (!m) return {};
+  const body = m[1]!;
+  const pick = (key: string): string | undefined => {
+    const line = new RegExp(`^${key}:\\s*(.+)$`, "m").exec(body);
+    if (!line) return undefined;
+    let v = line[1]!.trim();
+    if (
+      (v.startsWith('"') && v.endsWith('"')) ||
+      (v.startsWith("'") && v.endsWith("'"))
+    ) {
+      v = v.slice(1, -1);
+    }
+    return v || undefined;
+  };
+  return {
+    okfVersion: pick("okf_version"),
+    name: pick("name"),
+    description: pick("description"),
+  };
+}
+
+function hasKnowledgeIndex(dir: string): boolean {
+  return fs.existsSync(path.join(dir, OKF_INDEX_PATH));
 }
 
 /** Resolve OKF/legacy knowledge root under a project workspace. */
 export function resolveKnowledgeRoot(projectRoot: string): string {
   const root = path.resolve(projectRoot);
-  if (readOkfVersion(root)) return root;
+
+  if (hasKnowledgeIndex(root) && (readOkfVersion(root) || !looksLikeProjectRoot(root))) {
+    return root;
+  }
   if (fs.existsSync(path.join(root, LEGACY_INDEX_PATH))) return root;
 
-  const okfDir = path.join(root, DEFAULT_KB_DIR);
-  if (fs.existsSync(path.join(okfDir, OKF_INDEX_PATH))) return okfDir;
+  for (const name of [DEFAULT_KB_DIR, LEGACY_WIKI_DIR]) {
+    const sub = path.join(root, name);
+    if (hasKnowledgeIndex(sub)) return sub;
+  }
 
-  const legacyDir = path.join(root, LEGACY_WIKI_DIR);
-  if (fs.existsSync(path.join(legacyDir, "index.md"))) return legacyDir;
+  try {
+    for (const e of fs.readdirSync(root, { withFileTypes: true })) {
+      if (!e.isDirectory() || e.name.startsWith(".")) continue;
+      if (BUNDLE_EXCLUDE_DIRS.has(e.name)) continue;
+      const sub = path.join(root, e.name);
+      if (hasKnowledgeIndex(sub)) return sub;
+    }
+  } catch {
+    /* unreadable path */
+  }
 
   return root;
+}
+
+/** True when dir looks like llm-wiki project root (raw/ + audit/, concepts not at root). */
+function looksLikeProjectRoot(dir: string): boolean {
+  if (readOkfVersion(dir)) return false;
+  const hasRaw = fs.existsSync(path.join(dir, "raw"));
+  const hasAudit = fs.existsSync(path.join(dir, "audit"));
+  const hasConceptsAtRoot =
+    fs.existsSync(path.join(dir, "concepts")) ||
+    fs.existsSync(path.join(dir, "entities")) ||
+    fs.existsSync(path.join(dir, "datasets"));
+  return hasRaw && hasAudit && !hasConceptsAtRoot;
 }
 
 /** True when bundle declares OKF or uses OKF-native layout (no legacy wiki/ dir). */
